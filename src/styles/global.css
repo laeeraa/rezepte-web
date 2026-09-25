@@ -126,6 +126,16 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
 
 .leise { color: var(--leise); }
 
+/* Nur für Screenreader sichtbar */
+.unsichtbar {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Rezepttext aus Markdown */
 .rezepttext h2 {
   font-size: 1.35rem;
