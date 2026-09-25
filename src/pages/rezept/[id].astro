@@ -44,7 +44,7 @@ const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
     {data.zeit && (<div><dt>Zeit</dt><dd>{formatZeit(data.zeit)}</dd></div>)}
     {entdeckt.length > 0 && (
       <div>
-        <dt>Entdeckt bei</dt>
+        <dt>Entdeckt bei/in</dt>
         <dd>{entdeckt.map((t, i) => <>{i > 0 && ', '}<a href={filterLink(t)}>{tagLabel(t)}</a></>)}</dd>
       </div>
     )}

@@ -68,7 +68,7 @@ const unterzeile = (r: Rezept) =>
     ))}
     {entdeckt.length > 0 && (
       <div class="filtergruppe">
-        <label class="gruppentitel" for="entdeckt-auswahl">Entdeckt bei</label>
+        <label class="gruppentitel" for="entdeckt-auswahl">Entdeckt bei/in</label>
         <select id="entdeckt-auswahl" data-entdeckt>
           <option value="">alle</option>
           {entdeckt.map((e) => <option value={e.tag}>{e.label}</option>)}
