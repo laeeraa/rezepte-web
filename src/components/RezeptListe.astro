@@ -7,11 +7,11 @@ import { EIGENSTAENDIG, GRUPPEN, tagLabel } from '../lib/tags';
 
 interface Props {
   rezepte: Rezept[];
-  /** Filter nach Bereich anbieten (nur auf der Seite "Alle Rezepte"). */
-  mitBereich?: boolean;
+  /** Abschnitte nach Art (Bereichsseiten) oder nach Bereich (Alle Rezepte). */
+  gliederung: 'art' | 'bereich';
 }
 
-const { rezepte, mitBereich = false } = Astro.props;
+const { rezepte, gliederung } = Astro.props;
 const vorhanden = new Set(rezepte.flatMap((r) => r.tags));
 
 type Chip = { tag: string; label: string; gruppe: string };
@@ -26,17 +26,24 @@ const besonderes: Chip[] = [
   { tag: 'aufwand/schnell', label: 'Schnell', gruppe: 'aufwand/schnell' },
 ].filter((c) => vorhanden.has(c.tag));
 
+// Bereich und Art sind keine Filter, sondern gliedern die Liste in Abschnitte.
 const filterGruppen = [
-  mitBereich && {
-    titel: 'Bereich',
-    chips: BEREICHE.filter((b) => rezepte.some((r) => r.bereich.slug === b.slug)).map((b) => ({ tag: `bereich/${b.slug}`, label: b.ordner, gruppe: 'bereich' })),
-  },
-  { titel: 'Art', chips: gruppe('art') },
   { titel: 'Ernährung', chips: gruppe('ernaehrung') },
   { titel: 'Mahlzeit', chips: gruppe('mahlzeit') },
   { titel: 'Küche', chips: gruppe('kueche') },
   { titel: 'Besonderes', chips: besonderes },
-].filter((g): g is { titel: string; chips: Chip[] } => !!g && g.chips.length > 0);
+].filter((g) => g.chips.length > 0);
+
+type Abschnitt = { id: string; titel: string; klasse?: string; rezepte: Rezept[] };
+const artReihenfolge = Object.keys(GRUPPEN.art.werte);
+const abschnitte: Abschnitt[] = (
+  gliederung === 'bereich'
+    ? BEREICHE.map((b) => ({ id: `bereich-${b.slug}`, titel: b.ordner, klasse: `b-${b.slug}`, rezepte: rezepte.filter((r) => r.bereich.slug === b.slug) }))
+    : rezepte.some((r) => r.art.length)
+      ? artReihenfolge.map((a) => ({ id: `art-${a}`, titel: artLabel(a), rezepte: rezepte.filter((r) => r.art.includes(a)) }))
+      : [{ id: 'alle', titel: '', rezepte }]
+).filter((a) => a.rezepte.length > 0);
+const mitLeiste = abschnitte.length > 1;
 
 const entdeckt = [...vorhanden]
   .filter((t) => t.startsWith('entdeckt/'))
@@ -50,6 +57,16 @@ const unterzeile = (r: Rezept) =>
 ---
 
 <div class="liste" data-rezeptliste>
+  {mitLeiste && (
+    <nav class="sprung" aria-label="Abschnitte">
+      {abschnitte.map((a) => (
+        <a href={`#${a.id}`} class:list={['sprung-link', a.klasse]} data-sprung={a.id}>
+          {a.titel} <span class="zahl" data-zahl>{a.rezepte.length}</span>
+        </a>
+      ))}
+    </nav>
+  )}
+
   <div class="suche">
     <input type="search" placeholder="Rezept oder Zutat suchen …" aria-label="Rezepte durchsuchen" data-suche />
   </div>
@@ -83,26 +100,62 @@ const unterzeile = (r: Rezept) =>
     <button type="button" class="zuruecksetzen" data-zuruecksetzen hidden>Alle zurücksetzen</button>
   </div>
 
-  <ul class="karten">
-    {rezepte.map((r) => (
-      <li
-        class:list={['karte', `b-${r.bereich.slug}`]}
-        data-tags={[...r.tags, `bereich/${r.bereich.slug}`].join(' ')}
-        data-text={r.suchtext}
-      >
-        <a href={`/rezept/${r.id}`}>
-          {r.entry.data.bild && <Image src={r.entry.data.bild} alt="" width={480} class="karte-bild" />}
-          <span class="karte-art">{r.art.map(artLabel).join(' & ') || r.bereich.ordner}</span>
-          <span class="karte-titel">{r.titel}</span>
-          <span class="karte-unter">{unterzeile(r)}</span>
-        </a>
-      </li>
-    ))}
-  </ul>
+  {abschnitte.map((a) => (
+    <section class:list={['abschnitt', a.klasse]} id={a.id} data-abschnitt>
+      {a.titel && <h2 class="abschnitt-titel">{a.titel} <span class="zahl" data-zahl>{a.rezepte.length}</span></h2>}
+      <ul class="karten">
+        {a.rezepte.map((r) => (
+          <li class:list={['karte', `b-${r.bereich.slug}`]} data-id={r.id} data-tags={r.tags.join(' ')} data-text={r.suchtext}>
+            <a href={`/rezept/${r.id}`}>
+              {r.entry.data.bild && <Image src={r.entry.data.bild} alt="" width={480} class="karte-bild" />}
+              {gliederung === 'bereich' && r.art.length > 0 && <span class="karte-art">{r.art.map(artLabel).join(' & ')}</span>}
+              <span class="karte-titel">{r.titel}</span>
+              <span class="karte-unter">{unterzeile(r)}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
   <p class="leer" data-leer hidden>Keine Rezepte gefunden. Vielleicht einen Filter weniger?</p>
 </div>
 
 <style>
+  .sprung {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -1rem 0.9rem;
+    padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 1rem 0.5rem;
+    background: var(--papier);
+    border-bottom: 1px solid var(--linie);
+  }
+  .sprung-link {
+    white-space: nowrap;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    background: var(--karte);
+    border: 1px solid var(--linie);
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .sprung-link:hover { border-color: var(--farbe, var(--akzent)); color: var(--farbe, var(--akzent)); }
+  .zahl { font-weight: 400; color: var(--leise); font-size: 0.85em; margin-left: 0.15rem; }
+
+  .abschnitt { scroll-margin-top: 4rem; margin-bottom: 1.75rem; }
+  .abschnitt-titel {
+    font-size: 1.4rem;
+    margin: 0 0 0.7rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--farbe, var(--linie));
+  }
+
   .suche input {
     width: 100%;
     font: inherit;
@@ -213,6 +266,7 @@ const unterzeile = (r: Rezept) =>
   const reset = box.querySelector<HTMLElement>('[data-zuruecksetzen]')!;
   const aktivZahl = box.querySelector<HTMLElement>('[data-aktiv-zahl]')!;
   const kartenTags = new Map(karten.map((k) => [k, new Set(k.dataset.tags!.split(' '))]));
+  const abschnitte = [...box.querySelectorAll<HTMLElement>('[data-abschnitt]')];
   const aktivListe = box.querySelector<HTMLElement>('[data-aktiv-liste]')!;
 
   // Aktive Filter und Suchbegriff als Chips über der Liste, einzeln mit ✕ entfernbar.
@@ -266,14 +320,27 @@ const unterzeile = (r: Rezept) =>
     if (entdeckt?.value) gruppen.set('entdeckt', [entdeckt.value]);
     const woerter = suche.value.toLowerCase().split(/\s+/).filter(Boolean);
 
-    let sichtbar = 0;
+    // Ein Rezept kann in mehreren Abschnitten stehen (z. B. Gulasch), gezählt wird es einmal.
+    const ids = new Set<string>();
     for (const k of karten) {
       const tags = kartenTags.get(k)!;
       const passt =
         [...gruppen.values()].every((werte) => werte.some((w) => tags.has(w))) &&
         woerter.every((w) => k.dataset.text!.includes(w));
       k.hidden = !passt;
-      if (passt) sichtbar++;
+      if (passt) ids.add(k.dataset.id!);
+    }
+    const sichtbar = ids.size;
+
+    for (const abschnitt of abschnitte) {
+      const n = abschnitt.querySelectorAll('.karte:not([hidden])').length;
+      abschnitt.hidden = n === 0;
+      abschnitt.querySelector('[data-zahl]')?.replaceChildren(String(n));
+      const link = box.querySelector<HTMLElement>(`[data-sprung="${abschnitt.id}"]`);
+      if (link) {
+        link.hidden = n === 0;
+        link.querySelector('[data-zahl]')!.textContent = String(n);
+      }
     }
 
     anzahl.textContent = sichtbar === 1 ? '1 Rezept' : `${sichtbar} Rezepte`;
@@ -288,7 +355,7 @@ const unterzeile = (r: Rezept) =>
     if (zahl) params.set('f', aktive().join(','));
     if (suche.value.trim()) params.set('q', suche.value.trim());
     const query = params.toString();
-    history.replaceState(null, '', query ? `?${query}` : location.pathname);
+    history.replaceState(null, '', (query ? `?${query}` : location.pathname) + location.hash);
   }
 
   // Zustand aus der URL übernehmen (z. B. Links von Rezeptseiten: /rezepte?f=ernaehrung/vegan)

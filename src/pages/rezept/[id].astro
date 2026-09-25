@@ -26,7 +26,7 @@ const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
     {rezept.art.map((a) => (
       <>
         <span aria-hidden="true">›</span>
-        <a href={`/${rezept.bereich.slug}?f=art/${a}`}>{artLabel(a)}</a>
+        <a href={`/${rezept.bereich.slug}#art-${a}`}>{artLabel(a)}</a>
       </>
     ))}
   </nav>

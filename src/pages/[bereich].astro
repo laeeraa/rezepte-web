@@ -17,7 +17,7 @@ const { bereich, rezepte } = Astro.props;
 
 <Layout titel={bereich.ordner} klasse={`b-${bereich.slug}`}>
   <h1 class="titel">{bereich.ordner}</h1>
-  <RezeptListe rezepte={rezepte} />
+  <RezeptListe rezepte={rezepte} gliederung="art" />
 </Layout>
 
 <style>
