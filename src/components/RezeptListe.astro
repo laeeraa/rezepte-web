@@ -205,7 +205,6 @@ const unterzeile = (r: Rezept) =>
 <script>
   const box = document.querySelector<HTMLElement>('[data-rezeptliste]')!;
   const suche = box.querySelector<HTMLInputElement>('[data-suche]')!;
-  const details = box.querySelector<HTMLDetailsElement>('[data-filter-box]')!;
   const chips = [...box.querySelectorAll<HTMLButtonElement>('button[data-tag]')];
   const entdeckt = box.querySelector<HTMLSelectElement>('[data-entdeckt]');
   const karten = [...box.querySelectorAll<HTMLElement>('.karte')];
@@ -298,7 +297,6 @@ const unterzeile = (r: Rezept) =>
   for (const c of chips) if (start.has(c.dataset.tag!)) c.setAttribute('aria-pressed', 'true');
   if (entdeckt) for (const t of start) if (t.startsWith('entdeckt/')) entdeckt.value = t;
   suche.value = params.get('q') ?? '';
-  details.open = start.size > 0 || matchMedia('(min-width: 48rem)').matches;
 
   chips.forEach((c) =>
     c.addEventListener('click', () => {
