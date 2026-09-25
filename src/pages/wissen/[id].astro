@@ -1,0 +1,25 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+export async function getStaticPaths() {
+  const seiten = await getCollection('wissen');
+  return seiten.map((seite) => ({ params: { id: seite.id }, props: { seite } }));
+}
+
+const { seite } = Astro.props;
+const titel = (seite.filePath ?? '').split('/').pop()!.replace(/\.md$/, '');
+const { Content } = await render(seite);
+---
+
+<Layout titel={titel} schmal>
+  <nav class="pfad"><a href="/wissen">Wissen</a></nav>
+  <h1>{titel}</h1>
+  <article class="rezepttext">
+    <Content />
+  </article>
+</Layout>
+
+<style>
+  .pfad a { font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+</style>

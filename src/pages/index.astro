@@ -1,0 +1,92 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getRezepte, artLabel } from '../lib/rezepte';
+import { BEREICHE } from '../vault.mjs';
+
+const rezepte = await getRezepte();
+const bereiche = BEREICHE.map((b) => {
+  const eigene = rezepte.filter((r) => r.bereich.slug === b.slug);
+  const arten = [...new Set(eigene.flatMap((r) => r.art))].map(artLabel);
+  return { ...b, anzahl: eigene.length, arten };
+});
+
+const schnellzugriff = [
+  { f: 'ernaehrung/vegan', text: 'Vegan' },
+  { f: 'mahlzeit/hauptgericht', text: 'Hauptgerichte' },
+  { f: 'aufwand/schnell', text: 'Schnell' },
+  { f: 'sauerteig', text: 'Sauerteig' },
+  { f: 'grundrezept', text: 'Grundrezepte' },
+  { f: 'entdeckt/neuseeland', text: 'Aus Neuseeland' },
+];
+---
+
+<Layout>
+  <h1>Was machen wir heute?</h1>
+
+  <form class="suche" action="/rezepte" method="get">
+    <input type="search" name="q" placeholder="Rezept oder Zutat suchen …" aria-label="Rezepte durchsuchen" />
+  </form>
+
+  <ul class="chips schnell">
+    {schnellzugriff.map((s) => <li><a class="chip" href={`/rezepte?f=${s.f}`}>{s.text}</a></li>)}
+  </ul>
+
+  <ul class="bereiche">
+    {bereiche.map((b) => (
+      <li class={`b-${b.slug}`}>
+        <a href={`/${b.slug}`}>
+          <span class="name">{b.ordner}</span>
+          <span class="anzahl">{b.anzahl} {b.anzahl === 1 ? 'Rezept' : 'Rezepte'}</span>
+          {b.arten.length > 0 && <span class="arten">{b.arten.join(' · ')}</span>}
+        </a>
+      </li>
+    ))}
+    <li class="wissen">
+      <a href="/wissen">
+        <span class="name">Wissen</span>
+        <span class="arten">Gewürze, Umrechnungen und mehr zum Nachschlagen</span>
+      </a>
+    </li>
+  </ul>
+</Layout>
+
+<style>
+  .suche input {
+    width: 100%;
+    font: inherit;
+    font-size: 1.1rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--linie);
+    border-radius: var(--radius);
+    background: var(--karte);
+    color: var(--text);
+  }
+  .suche input:focus { outline: 2px solid var(--akzent); outline-offset: 1px; }
+  .schnell { margin: 0.9rem 0 2rem; }
+
+  .bereiche {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 1rem;
+  }
+  .bereiche a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    height: 100%;
+    padding: 1.25rem 1.25rem 1.1rem;
+    background: var(--karte);
+    border-radius: var(--radius);
+    border-top: 5px solid var(--farbe, var(--leise));
+    box-shadow: var(--schatten);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .bereiche a:hover .name { color: var(--farbe, var(--akzent)); }
+  .name { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; }
+  .anzahl { color: var(--farbe); font-weight: 600; font-size: 0.9rem; }
+  .arten { color: var(--leise); font-size: 0.9rem; }
+</style>

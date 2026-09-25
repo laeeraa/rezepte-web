@@ -1,0 +1,267 @@
+---
+import { Image } from 'astro:assets';
+import type { Rezept } from '../lib/rezepte';
+import { artLabel } from '../lib/rezepte';
+import { BEREICHE } from '../vault.mjs';
+import { EIGENSTAENDIG, GRUPPEN, tagLabel } from '../lib/tags';
+
+interface Props {
+  rezepte: Rezept[];
+  /** Filter nach Bereich anbieten (nur auf der Seite "Alle Rezepte"). */
+  mitBereich?: boolean;
+}
+
+const { rezepte, mitBereich = false } = Astro.props;
+const vorhanden = new Set(rezepte.flatMap((r) => r.tags));
+
+type Chip = { tag: string; label: string; gruppe: string };
+const gruppe = (name: keyof typeof GRUPPEN): Chip[] =>
+  Object.entries(GRUPPEN[name].werte)
+    .map(([wert, label]) => ({ tag: `${name}/${wert}`, label, gruppe: name }))
+    .filter((c) => vorhanden.has(c.tag));
+
+// Besonderheiten werden mit "und" verknüpft, deshalb bekommt jede eine eigene Gruppe.
+const besonderes: Chip[] = [
+  ...Object.entries(EIGENSTAENDIG).filter(([t]) => t !== 'todo').map(([tag, label]) => ({ tag, label, gruppe: tag })),
+  { tag: 'aufwand/schnell', label: 'Schnell', gruppe: 'aufwand/schnell' },
+].filter((c) => vorhanden.has(c.tag));
+
+const filterGruppen = [
+  mitBereich && {
+    titel: 'Bereich',
+    chips: BEREICHE.filter((b) => rezepte.some((r) => r.bereich.slug === b.slug)).map((b) => ({ tag: `bereich/${b.slug}`, label: b.ordner, gruppe: 'bereich' })),
+  },
+  { titel: 'Art', chips: gruppe('art') },
+  { titel: 'Ernährung', chips: gruppe('ernaehrung') },
+  { titel: 'Mahlzeit', chips: gruppe('mahlzeit') },
+  { titel: 'Küche', chips: gruppe('kueche') },
+  { titel: 'Besonderes', chips: besonderes },
+].filter((g): g is { titel: string; chips: Chip[] } => !!g && g.chips.length > 0);
+
+const entdeckt = [...vorhanden]
+  .filter((t) => t.startsWith('entdeckt/'))
+  .map((tag) => ({ tag, label: tagLabel(tag) }))
+  .sort((a, b) => a.label.localeCompare(b.label, 'de'));
+
+const unterzeile = (r: Rezept) =>
+  [tagLabel(r.tags.find((t) => t.startsWith('ernaehrung/'))!), r.tags.includes('sauerteig') && 'Sauerteig', r.tags.includes('aufwand/schnell') && 'schnell']
+    .filter(Boolean)
+    .join(' · ');
+---
+
+<div class="liste" data-rezeptliste>
+  <div class="suche">
+    <input type="search" placeholder="Rezept oder Zutat suchen …" aria-label="Rezepte durchsuchen" data-suche />
+  </div>
+
+  <details class="filter" data-filter-box>
+    <summary>Filter <span class="aktiv-zahl" data-aktiv-zahl hidden></span></summary>
+    {filterGruppen.map((g) => (
+      <div class="filtergruppe">
+        <span class="gruppentitel">{g.titel}</span>
+        <ul class="chips">
+          {g.chips.map((c) => (
+            <li><button type="button" class="chip" aria-pressed="false" data-tag={c.tag} data-gruppe={c.gruppe}>{c.label}</button></li>
+          ))}
+        </ul>
+      </div>
+    ))}
+    {entdeckt.length > 0 && (
+      <div class="filtergruppe">
+        <label class="gruppentitel" for="entdeckt-auswahl">Entdeckt bei</label>
+        <select id="entdeckt-auswahl" data-entdeckt>
+          <option value="">alle</option>
+          {entdeckt.map((e) => <option value={e.tag}>{e.label}</option>)}
+        </select>
+      </div>
+    )}
+  </details>
+
+  <p class="status">
+    <span data-anzahl>{rezepte.length} Rezepte</span>
+    <button type="button" class="zuruecksetzen" data-zuruecksetzen hidden>Filter zurücksetzen</button>
+  </p>
+
+  <ul class="karten">
+    {rezepte.map((r) => (
+      <li
+        class:list={['karte', `b-${r.bereich.slug}`]}
+        data-tags={[...r.tags, `bereich/${r.bereich.slug}`].join(' ')}
+        data-text={r.suchtext}
+      >
+        <a href={`/rezept/${r.id}`}>
+          {r.entry.data.bild && <Image src={r.entry.data.bild} alt="" width={480} class="karte-bild" />}
+          <span class="karte-art">{r.art.map(artLabel).join(' & ') || r.bereich.ordner}</span>
+          <span class="karte-titel">{r.titel}</span>
+          <span class="karte-unter">{unterzeile(r)}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+  <p class="leer" data-leer hidden>Keine Rezepte gefunden. Vielleicht einen Filter weniger?</p>
+</div>
+
+<style>
+  .suche input {
+    width: 100%;
+    font: inherit;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--linie);
+    border-radius: var(--radius);
+    background: var(--karte);
+    color: var(--text);
+  }
+  .suche input:focus { outline: 2px solid var(--akzent); outline-offset: 1px; }
+
+  .filter {
+    margin-top: 0.75rem;
+    background: var(--karte);
+    border: 1px solid var(--linie);
+    border-radius: var(--radius);
+    padding: 0.25rem 1rem;
+  }
+  .filter summary { cursor: pointer; font-weight: 600; padding: 0.5rem 0; }
+  .filter[open] { padding-bottom: 0.9rem; }
+  .aktiv-zahl {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 0 0.4em;
+    margin-left: 0.3rem;
+    border-radius: 999px;
+    background: var(--text);
+    color: var(--papier);
+    font-size: 0.8rem;
+    text-align: center;
+  }
+  .filtergruppe {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    margin-top: 0.6rem;
+  }
+  .gruppentitel { color: var(--leise); font-size: 0.875rem; }
+  select {
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--linie);
+    background: var(--chip);
+    color: var(--text);
+    justify-self: start;
+    max-width: 100%;
+  }
+  @media (max-width: 34rem) {
+    .filtergruppe { grid-template-columns: 1fr; gap: 0.3rem; }
+  }
+
+  .status { display: flex; justify-content: space-between; align-items: center; color: var(--leise); font-size: 0.9rem; margin: 1rem 0 0.6rem; }
+  .zuruecksetzen { font: inherit; background: none; border: 0; color: var(--akzent); cursor: pointer; padding: 0; }
+
+  .karten {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.75rem;
+  }
+  .karte a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    height: 100%;
+    padding: 0.85rem 1rem 0.9rem;
+    background: var(--karte);
+    border-radius: var(--radius);
+    border-left: 4px solid var(--farbe);
+    box-shadow: var(--schatten);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .karte a:hover .karte-titel { color: var(--farbe); }
+  .karte-bild { width: calc(100% + 2rem); max-width: none; margin: -0.85rem -1rem 0.5rem; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--radius) var(--radius) 0 0; }
+  .karte-art { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--farbe); font-weight: 600; }
+  .karte-titel { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.25; }
+  .karte-unter { font-size: 0.85rem; color: var(--leise); }
+  .leer { text-align: center; color: var(--leise); padding: 2rem 0; }
+</style>
+
+<script>
+  const box = document.querySelector<HTMLElement>('[data-rezeptliste]')!;
+  const suche = box.querySelector<HTMLInputElement>('[data-suche]')!;
+  const details = box.querySelector<HTMLDetailsElement>('[data-filter-box]')!;
+  const chips = [...box.querySelectorAll<HTMLButtonElement>('button[data-tag]')];
+  const entdeckt = box.querySelector<HTMLSelectElement>('[data-entdeckt]');
+  const karten = [...box.querySelectorAll<HTMLElement>('.karte')];
+  const anzahl = box.querySelector('[data-anzahl]')!;
+  const leer = box.querySelector<HTMLElement>('[data-leer]')!;
+  const reset = box.querySelector<HTMLElement>('[data-zuruecksetzen]')!;
+  const aktivZahl = box.querySelector<HTMLElement>('[data-aktiv-zahl]')!;
+  const kartenTags = new Map(karten.map((k) => [k, new Set(k.dataset.tags!.split(' '))]));
+
+  function aktive() {
+    const tags = chips.filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => c.dataset.tag!);
+    if (entdeckt?.value) tags.push(entdeckt.value);
+    return tags;
+  }
+
+  function anwenden() {
+    const gruppen = new Map<string, string[]>();
+    for (const c of chips) {
+      if (c.getAttribute('aria-pressed') !== 'true') continue;
+      const g = c.dataset.gruppe!;
+      gruppen.set(g, [...(gruppen.get(g) ?? []), c.dataset.tag!]);
+    }
+    if (entdeckt?.value) gruppen.set('entdeckt', [entdeckt.value]);
+    const woerter = suche.value.toLowerCase().split(/\s+/).filter(Boolean);
+
+    let sichtbar = 0;
+    for (const k of karten) {
+      const tags = kartenTags.get(k)!;
+      const passt =
+        [...gruppen.values()].every((werte) => werte.some((w) => tags.has(w))) &&
+        woerter.every((w) => k.dataset.text!.includes(w));
+      k.hidden = !passt;
+      if (passt) sichtbar++;
+    }
+
+    anzahl.textContent = sichtbar === 1 ? '1 Rezept' : `${sichtbar} Rezepte`;
+    leer.hidden = sichtbar > 0;
+    const zahl = aktive().length;
+    aktivZahl.hidden = zahl === 0;
+    aktivZahl.textContent = String(zahl);
+    reset.hidden = zahl === 0 && woerter.length === 0;
+
+    const params = new URLSearchParams();
+    if (zahl) params.set('f', aktive().join(','));
+    if (suche.value.trim()) params.set('q', suche.value.trim());
+    const query = params.toString();
+    history.replaceState(null, '', query ? `?${query}` : location.pathname);
+  }
+
+  // Zustand aus der URL übernehmen (z. B. Links von Rezeptseiten: /rezepte?f=ernaehrung/vegan)
+  const params = new URLSearchParams(location.search);
+  const start = new Set((params.get('f') ?? '').split(',').filter(Boolean));
+  for (const c of chips) if (start.has(c.dataset.tag!)) c.setAttribute('aria-pressed', 'true');
+  if (entdeckt) for (const t of start) if (t.startsWith('entdeckt/')) entdeckt.value = t;
+  suche.value = params.get('q') ?? '';
+  details.open = start.size > 0 || matchMedia('(min-width: 48rem)').matches;
+
+  chips.forEach((c) =>
+    c.addEventListener('click', () => {
+      c.setAttribute('aria-pressed', String(c.getAttribute('aria-pressed') !== 'true'));
+      anwenden();
+    }),
+  );
+  entdeckt?.addEventListener('change', anwenden);
+  suche.addEventListener('input', anwenden);
+  reset.addEventListener('click', () => {
+    chips.forEach((c) => c.setAttribute('aria-pressed', 'false'));
+    if (entdeckt) entdeckt.value = '';
+    suche.value = '';
+    anwenden();
+  });
+  anwenden();
+</script>

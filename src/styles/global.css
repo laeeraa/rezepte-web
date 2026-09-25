@@ -1,0 +1,149 @@
+:root {
+  --papier: #faf7f2;
+  --karte: #ffffff;
+  --text: #2b2622;
+  --leise: #6f665d;
+  --linie: #e6ded3;
+  --chip: #f1ebe2;
+  --akzent: #9a4a26;
+  --suesses: #b0456a;
+  --brot-broetchen: #a86a1c;
+  --herzhaftes: #4d7a45;
+  --getraenke: #2f7a86;
+  --schatten: 0 1px 2px rgb(60 40 20 / 0.06), 0 2px 8px rgb(60 40 20 / 0.05);
+  --radius: 12px;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papier: #1c1a18;
+    --karte: #262320;
+    --text: #ece6de;
+    --leise: #a89f95;
+    --linie: #3a3530;
+    --chip: #332f2a;
+    --akzent: #e08a5f;
+    --suesses: #e27d9f;
+    --brot-broetchen: #d9a14e;
+    --herzhaftes: #8cbf7f;
+    --getraenke: #6cbccb;
+    --schatten: none;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--papier);
+  color: var(--text);
+  font: 1.0625rem/1.6 var(--sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--akzent); }
+img { max-width: 100%; height: auto; }
+
+h1, h2, h3 { font-family: var(--serif); line-height: 1.2; font-weight: 600; }
+h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
+
+.inhalt {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.25rem max(1rem, env(safe-area-inset-left)) 3rem;
+}
+.inhalt.schmal { max-width: 44rem; }
+
+/* Kopfzeile */
+.kopf {
+  background: var(--karte);
+  border-bottom: 1px solid var(--linie);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.kopf-innen {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.marke {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.nav {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+  flex: 1 1 auto;
+}
+.nav a {
+  white-space: nowrap;
+  color: var(--leise);
+  text-decoration: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+}
+.nav a:hover { background: var(--chip); color: var(--text); }
+.nav a[aria-current='page'] { background: var(--chip); color: var(--text); font-weight: 600; }
+
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.chip {
+  display: inline-block;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--text);
+  border: 1px solid transparent;
+  text-decoration: none;
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--linie); }
+.chip[aria-pressed='true'] { background: var(--text); color: var(--papier); }
+
+/* Bereichsfarben */
+.b-suesses { --farbe: var(--suesses); }
+.b-brot-broetchen { --farbe: var(--brot-broetchen); }
+.b-herzhaftes { --farbe: var(--herzhaftes); }
+.b-getraenke { --farbe: var(--getraenke); }
+
+.leise { color: var(--leise); }
+
+/* Rezepttext aus Markdown */
+.rezepttext h2 {
+  font-size: 1.35rem;
+  margin: 2rem 0 0.6rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid var(--farbe, var(--linie));
+}
+.rezepttext h3, .rezepttext h4 { font-size: 1.1rem; margin: 1.4rem 0 0.4rem; }
+.rezepttext ul, .rezepttext ol { padding-left: 1.4rem; }
+.rezepttext li { margin: 0.25rem 0; }
+.rezepttext li::marker { color: var(--farbe, var(--leise)); }
+.rezepttext table { display: block; overflow-x: auto; border-collapse: collapse; margin: 1rem 0; font-size: 0.95rem; }
+.rezepttext th, .rezepttext td { border-bottom: 1px solid var(--linie); padding: 0.35rem 0.8rem 0.35rem 0; text-align: left; }
+.rezepttext th:empty { display: none; }
+
+.fuss {
+  text-align: center;
+  color: var(--leise);
+  font-size: 0.85rem;
+  padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom, 0px));
+}

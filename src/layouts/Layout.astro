@@ -1,0 +1,45 @@
+---
+import '../styles/global.css';
+import { BEREICHE } from '../vault.mjs';
+
+interface Props {
+  titel?: string;
+  schmal?: boolean;
+  klasse?: string;
+}
+
+const { titel, schmal = false, klasse = '' } = Astro.props;
+const pfad = Astro.url.pathname.replace(/\/$/, '') || '/';
+const links = [
+  ...BEREICHE.map((b) => ({ href: `/${b.slug}`, text: b.ordner })),
+  { href: '/rezepte', text: 'Alle Rezepte' },
+  { href: '/wissen', text: 'Wissen' },
+];
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>{titel ? `${titel} · Rezepte` : 'Rezepte'}</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥄</text></svg>" />
+  </head>
+  <body class={klasse}>
+    <header class="kopf">
+      <div class="kopf-innen">
+        <a class="marke" href="/">Rezepte</a>
+        <nav class="nav" aria-label="Bereiche">
+          {links.map((l) => (
+            <a href={l.href} aria-current={pfad === l.href || pfad.startsWith(l.href + '/') ? 'page' : undefined}>{l.text}</a>
+          ))}
+        </nav>
+      </div>
+    </header>
+    <main class:list={['inhalt', { schmal }]}>
+      <slot />
+    </main>
+    <footer class="fuss">Rezepte aus dem Obsidian-Vault</footer>
+  </body>
+</html>

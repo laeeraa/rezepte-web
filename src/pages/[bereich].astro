@@ -1,0 +1,25 @@
+---
+import Layout from '../layouts/Layout.astro';
+import RezeptListe from '../components/RezeptListe.astro';
+import { getRezepte } from '../lib/rezepte';
+import { BEREICHE } from '../vault.mjs';
+
+export async function getStaticPaths() {
+  const rezepte = await getRezepte();
+  return BEREICHE.map((bereich) => ({
+    params: { bereich: bereich.slug },
+    props: { bereich, rezepte: rezepte.filter((r) => r.bereich.slug === bereich.slug) },
+  }));
+}
+
+const { bereich, rezepte } = Astro.props;
+---
+
+<Layout titel={bereich.ordner} klasse={`b-${bereich.slug}`}>
+  <h1 class="titel">{bereich.ordner}</h1>
+  <RezeptListe rezepte={rezepte} />
+</Layout>
+
+<style>
+  .titel { border-bottom: 3px solid var(--farbe); display: inline-block; padding-bottom: 0.1em; }
+</style>

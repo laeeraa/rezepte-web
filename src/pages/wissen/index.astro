@@ -1,0 +1,32 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+
+const seiten = (await getCollection('wissen'))
+  .map((s) => ({ id: s.id, titel: (s.filePath ?? '').split('/').pop()!.replace(/\.md$/, '') }))
+  .sort((a, b) => a.titel.localeCompare(b.titel, 'de'));
+---
+
+<Layout titel="Wissen" schmal>
+  <h1>Wissen</h1>
+  <p class="leise">Zum Nachschlagen: alles, was kein Rezept ist.</p>
+  <ul class="seiten">
+    {seiten.map((s) => <li><a href={`/wissen/${s.id}`}>{s.titel}</a></li>)}
+  </ul>
+</Layout>
+
+<style>
+  .seiten { list-style: none; padding: 0; display: grid; gap: 0.6rem; }
+  .seiten a {
+    display: block;
+    padding: 0.9rem 1rem;
+    background: var(--karte);
+    border-radius: var(--radius);
+    box-shadow: var(--schatten);
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+  }
+</style>

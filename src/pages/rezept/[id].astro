@@ -1,0 +1,95 @@
+---
+import { render } from 'astro:content';
+import { Image } from 'astro:assets';
+import Layout from '../../layouts/Layout.astro';
+import { getRezepte, artLabel, formatZeit, type Rezept } from '../../lib/rezepte';
+import { tagLabel } from '../../lib/tags';
+
+export async function getStaticPaths() {
+  const rezepte = await getRezepte();
+  return rezepte.map((rezept) => ({ params: { id: rezept.id }, props: { rezept } }));
+}
+
+const { rezept } = Astro.props as { rezept: Rezept };
+const { data } = rezept.entry;
+const { Content } = await render(rezept.entry);
+
+const merkmale = rezept.tags.filter((t) => !t.startsWith('art/') && !t.startsWith('entdeckt/'));
+const entdeckt = rezept.tags.filter((t) => t.startsWith('entdeckt/'));
+const filterLink = (tag: string) => `/rezepte?f=${tag}`;
+const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
+---
+
+<Layout titel={rezept.titel} schmal klasse={`b-${rezept.bereich.slug}`}>
+  <nav class="pfad" aria-label="Brotkrumen">
+    <a href={`/${rezept.bereich.slug}`}>{rezept.bereich.ordner}</a>
+    {rezept.art.map((a) => (
+      <>
+        <span aria-hidden="true">›</span>
+        <a href={`/${rezept.bereich.slug}?f=art/${a}`}>{artLabel(a)}</a>
+      </>
+    ))}
+  </nav>
+
+  <h1>{rezept.titel}</h1>
+
+  {data.bild && <Image src={data.bild} alt={rezept.titel} width={1200} class="bild" />}
+
+  <ul class="chips merkmale">
+    {merkmale.map((t) => <li><a class="chip" href={filterLink(t)}>{tagLabel(t)}</a></li>)}
+  </ul>
+
+  <dl class="fakten">
+    {data.portionen && (<div><dt>Menge</dt><dd>{data.portionen}</dd></div>)}
+    {data.zeit && (<div><dt>Zeit</dt><dd>{formatZeit(data.zeit)}</dd></div>)}
+    {entdeckt.length > 0 && (
+      <div>
+        <dt>Entdeckt bei</dt>
+        <dd>{entdeckt.map((t, i) => <>{i > 0 && ', '}<a href={filterLink(t)}>{tagLabel(t)}</a></>)}</dd>
+      </div>
+    )}
+    {data.quelle.length > 0 && (
+      <div>
+        <dt>Quelle</dt>
+        <dd>{data.quelle.map((q, i) => <>{i > 0 && ', '}<a href={q} rel="noopener noreferrer" target="_blank">{host(q)}</a></>)}</dd>
+      </div>
+    )}
+  </dl>
+
+  <article class="rezepttext" data-rezepttext>
+    <Content />
+  </article>
+
+  <p class="hinweis leise">Tipp: Zutaten und Schritte antippen, um sie abzuhaken.</p>
+</Layout>
+
+<style>
+  .pfad { display: flex; gap: 0.4rem; font-size: 0.9rem; flex-wrap: wrap; }
+  .pfad a { color: var(--farbe); text-decoration: none; font-weight: 600; }
+  .pfad span { color: var(--leise); }
+  .bild { width: 100%; border-radius: var(--radius); margin-bottom: 1rem; }
+  .merkmale { margin-bottom: 1rem; }
+  .fakten {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+    margin: 0 0 1rem;
+    padding: 0.9rem 1rem;
+    background: var(--karte);
+    border-radius: var(--radius);
+    box-shadow: var(--schatten);
+  }
+  .fakten:empty { display: none; }
+  .fakten dt { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--leise); }
+  .fakten dd { margin: 0; }
+  .rezepttext :global(li) { cursor: pointer; }
+  .rezepttext :global(li.erledigt) { text-decoration: line-through; color: var(--leise); }
+  .hinweis { font-size: 0.85rem; margin-top: 2rem; }
+</style>
+
+<script>
+  document.querySelector('[data-rezepttext]')?.addEventListener('click', (e) => {
+    const li = (e.target as HTMLElement).closest('li');
+    if (li && !(e.target as HTMLElement).closest('a')) li.classList.toggle('erledigt');
+  });
+</script>
