@@ -9,6 +9,7 @@ interface Props {
 }
 
 const { titel, schmal = false, klasse = '' } = Astro.props;
+const NAME = "Lara's Lieblingsrezepte";
 const pfad = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
   ...BEREICHE.map((b) => ({ href: `/${b.slug}`, text: b.ordner })),
@@ -23,13 +24,13 @@ const links = [
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="robots" content="noindex" />
-    <title>{titel ? `${titel} · Rezepte` : 'Rezepte'}</title>
+    <title>{titel ? `${titel} · ${NAME}` : NAME}</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥄</text></svg>" />
   </head>
   <body class={klasse}>
     <header class="kopf">
       <div class="kopf-innen">
-        <a class="marke" href="/">Rezepte</a>
+        <a class="marke" href="/">{NAME}</a>
         <nav class="nav" aria-label="Bereiche">
           {links.map((l) => (
             <a href={l.href} aria-current={pfad === l.href || pfad.startsWith(l.href + '/') ? 'page' : undefined}>{l.text}</a>
@@ -40,6 +41,6 @@ const links = [
     <main class:list={['inhalt', { schmal }]}>
       <slot />
     </main>
-    <footer class="fuss">Rezepte aus dem Obsidian-Vault</footer>
+    <footer class="fuss">{NAME}</footer>
   </body>
 </html>

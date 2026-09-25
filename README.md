@@ -1,4 +1,4 @@
-# Rezepte-Webseite
+# Lara's Lieblingsrezepte
 
 Statische Webseite für die Rezeptsammlung aus dem Obsidian-Vault, gebaut mit [Astro](https://astro.build).
 Die Rezepte selbst liegen **nicht** hier, sondern im Vault. Die Seite liest sie beim Bauen ein.
