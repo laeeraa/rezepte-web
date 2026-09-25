@@ -10,13 +10,14 @@ const bereiche = BEREICHE.map((b) => {
   return { ...b, anzahl: eigene.length, arten };
 });
 
+// Feste Auswahl für die Chips unter dem Suchfeld, jeweils ein Link auf "Alle Rezepte" mit Filter.
 const schnellzugriff = [
-  { f: 'ernaehrung/vegan', text: 'Vegan' },
-  { f: 'mahlzeit/hauptgericht', text: 'Hauptgerichte' },
-  { f: 'aufwand/schnell', text: 'Schnell' },
   { f: 'sauerteig', text: 'Sauerteig' },
+  { f: 'art/brot', text: 'Brot' },
+  { f: 'art/broetchen', text: 'Brötchen' },
+  { f: 'ernaehrung/vegan', text: 'Vegan' },
   { f: 'grundrezept', text: 'Grundrezepte' },
-  { f: 'entdeckt/neuseeland', text: 'Aus Neuseeland' },
+  { f: 'aufwand/schnell', text: 'Schnell' },
 ];
 ---
 
