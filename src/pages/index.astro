@@ -12,6 +12,7 @@ const bereiche = BEREICHE.map((b) => {
 
 // Feste Auswahl für die Chips unter dem Suchfeld, jeweils ein Link auf "Alle Rezepte" mit Filter.
 const schnellzugriff = [
+  { f: '', text: 'Alle Rezepte' },
   { f: 'sauerteig', text: 'Sauerteig' },
   { f: 'art/brot', text: 'Brot' },
   { f: 'art/broetchen', text: 'Brötchen' },
@@ -29,7 +30,7 @@ const schnellzugriff = [
   </form>
 
   <ul class="chips schnell">
-    {schnellzugriff.map((s) => <li><a class="chip" href={`/rezepte?f=${s.f}`}>{s.text}</a></li>)}
+    {schnellzugriff.map((s) => <li><a class="chip" href={s.f ? `/rezepte?f=${s.f}` : "/rezepte"}>{s.text}</a></li>)}
   </ul>
 
   <ul class="bereiche">

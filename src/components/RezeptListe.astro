@@ -77,10 +77,11 @@ const unterzeile = (r: Rezept) =>
     )}
   </details>
 
-  <p class="status">
-    <span data-anzahl>{rezepte.length} Rezepte</span>
-    <button type="button" class="zuruecksetzen" data-zuruecksetzen hidden>Filter zurücksetzen</button>
-  </p>
+  <div class="status">
+    <span class="anzahl" data-anzahl>{rezepte.length} Rezepte</span>
+    <ul class="chips aktiv" data-aktiv-liste aria-label="Aktive Filter"></ul>
+    <button type="button" class="zuruecksetzen" data-zuruecksetzen hidden>Alle zurücksetzen</button>
+  </div>
 
   <ul class="karten">
     {rezepte.map((r) => (
@@ -156,8 +157,21 @@ const unterzeile = (r: Rezept) =>
     .filtergruppe { grid-template-columns: 1fr; gap: 0.3rem; }
   }
 
-  .status { display: flex; justify-content: space-between; align-items: center; color: var(--leise); font-size: 0.9rem; margin: 1rem 0 0.6rem; }
-  .zuruecksetzen { font: inherit; background: none; border: 0; color: var(--akzent); cursor: pointer; padding: 0; }
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 1rem 0 0.8rem; }
+  .anzahl { color: var(--leise); font-size: 0.9rem; }
+  .aktiv :global(.chip) { background: var(--text); color: var(--papier); }
+  .aktiv :global(.chip span) { margin-left: 0.35rem; opacity: 0.7; }
+  .zuruecksetzen {
+    font: inherit;
+    font-size: 0.875rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--akzent);
+    background: none;
+    color: var(--akzent);
+    cursor: pointer;
+  }
+  .zuruecksetzen:hover { background: var(--akzent); color: var(--papier); }
 
   .karten {
     list-style: none;
@@ -200,6 +214,42 @@ const unterzeile = (r: Rezept) =>
   const reset = box.querySelector<HTMLElement>('[data-zuruecksetzen]')!;
   const aktivZahl = box.querySelector<HTMLElement>('[data-aktiv-zahl]')!;
   const kartenTags = new Map(karten.map((k) => [k, new Set(k.dataset.tags!.split(' '))]));
+  const aktivListe = box.querySelector<HTMLElement>('[data-aktiv-liste]')!;
+
+  // Aktive Filter und Suchbegriff als Chips über der Liste, einzeln mit ✕ entfernbar.
+  function zeigeAktive() {
+    const eintraege: { wert: string; text: string }[] = chips
+      .filter((c) => c.getAttribute('aria-pressed') === 'true')
+      .map((c) => ({ wert: c.dataset.tag!, text: c.textContent! }));
+    if (entdeckt?.value) eintraege.push({ wert: entdeckt.value, text: entdeckt.selectedOptions[0].text });
+    if (suche.value.trim()) eintraege.push({ wert: 'suche', text: `„${suche.value.trim()}“` });
+    aktivListe.replaceChildren(
+      ...eintraege.map(({ wert, text }) => {
+        const li = document.createElement('li');
+        const knopf = document.createElement('button');
+        knopf.type = 'button';
+        knopf.className = 'chip';
+        knopf.dataset.entfernen = wert;
+        knopf.setAttribute('aria-label', `${text} entfernen`);
+        knopf.append(text);
+        const x = document.createElement('span');
+        x.setAttribute('aria-hidden', 'true');
+        x.textContent = '✕';
+        knopf.append(x);
+        li.append(knopf);
+        return li;
+      }),
+    );
+  }
+
+  aktivListe.addEventListener('click', (e) => {
+    const wert = (e.target as HTMLElement).closest<HTMLElement>('[data-entfernen]')?.dataset.entfernen;
+    if (!wert) return;
+    if (wert === 'suche') suche.value = '';
+    else if (entdeckt && wert === entdeckt.value) entdeckt.value = '';
+    else chips.find((c) => c.dataset.tag === wert)?.setAttribute('aria-pressed', 'false');
+    anwenden();
+  });
 
   function aktive() {
     const tags = chips.filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => c.dataset.tag!);
@@ -233,6 +283,7 @@ const unterzeile = (r: Rezept) =>
     aktivZahl.hidden = zahl === 0;
     aktivZahl.textContent = String(zahl);
     reset.hidden = zahl === 0 && woerter.length === 0;
+    zeigeAktive();
 
     const params = new URLSearchParams();
     if (zahl) params.set('f', aktive().join(','));
