@@ -1,0 +1,49 @@
+# Baut die Seite aus diesem Repo und dem Vault-Repo und veröffentlicht sie als Cloudflare Worker.
+# Läuft bei Pushes hierher, bei Pushes in den Vault (über repository_dispatch) und von Hand.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [vault-aktualisiert]
+  workflow_dispatch:
+
+# Nie zwei Deploys gleichzeitig; ein neuerer ersetzt einen wartenden.
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Website-Code holen
+        uses: actions/checkout@v4
+
+      - name: Vault holen
+        uses: actions/checkout@v4
+        with:
+          repository: laeeraa/rezepte-vault
+          token: ${{ secrets.VAULT_TOKEN }}
+          path: vault
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Seite bauen
+        run: npm run build
+        env:
+          VAULT_DIR: vault
+
+      # Name, Ordner und Domain stehen in wrangler.jsonc.
+      - name: Auf Cloudflare veröffentlichen
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy

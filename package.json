@@ -14,5 +14,8 @@
     "astro": "^7.3.5",
     "github-slugger": "^2.0.0",
     "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.142.0"
   }
 }

@@ -1,0 +1,12 @@
+// Cloudflare Worker, der nur die fertige Seite aus dist/ ausliefert (kein eigener Code).
+// Erreichbar unter https://lieblingsrezepte.<account>.workers.dev
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "lieblingsrezepte",
+  "compatibility_date": "2026-09-28",
+  "assets": {
+    "directory": "./dist"
+  }
+  // Eigene Domain später (Domain muss bei Cloudflare verwaltet werden):
+  // "routes": [{ "pattern": "rezepte.example.de", "custom_domain": true }]
+}
