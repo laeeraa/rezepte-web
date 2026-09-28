@@ -55,7 +55,7 @@ const ENTDECKT: Record<string, string> = {
   'law-of-baking': 'Law of Baking', 'kitchen-stories': 'Kitchen Stories', 'feines-gemuese': 'Feines Gemüse',
   dierezepte: 'dierezepte.com', 'eat-this': 'Eat this!', 'backen-macht-gluecklich': 'Backen macht glücklich',
   'frau-huegels-kueche': 'Frau Hügels Küche', 'claras-crumbs': "Clara's Crumbs", instagram: 'Instagram',
-  'sallys-blog': "Sally's Blog", 'nico-stanitzok': 'Nico Stanitzok',
+  'sallys-blog': "Sally's Blog", 'nico-stanitzok': 'Nico Stanitzok', kruemelig: 'Krümelig',
 };
 
 export type Gruppe = keyof typeof GRUPPEN;
