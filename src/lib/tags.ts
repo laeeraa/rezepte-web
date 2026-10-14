@@ -32,6 +32,7 @@ export const EIGENSTAENDIG = {
   hefe: 'Hefe',
   fermentiert: 'Fermentiert',
   grundrezept: 'Grundrezept',
+  vortag: 'Vortag',
   todo: 'Unvollständig',
 } as const;
 

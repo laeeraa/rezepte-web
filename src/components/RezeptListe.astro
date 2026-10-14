@@ -51,9 +51,17 @@ const entdeckt = [...vorhanden]
   .sort((a, b) => a.label.localeCompare(b.label, 'de'));
 
 const unterzeile = (r: Rezept) =>
-  [tagLabel(r.tags.find((t) => t.startsWith('ernaehrung/'))!), r.tags.includes('sauerteig') && 'Sauerteig', r.tags.includes('aufwand/schnell') && 'schnell']
+  [
+    tagLabel(r.tags.find((t) => t.startsWith('ernaehrung/'))!),
+    r.tags.includes('sauerteig') && 'Sauerteig',
+    r.tags.includes('vortag') && 'Vortag',
+    r.tags.includes('aufwand/schnell') && 'schnell',
+  ]
     .filter(Boolean)
     .join(' · ');
+
+const quelle = (r: Rezept) =>
+  r.tags.filter((t) => t.startsWith('entdeckt/')).map(tagLabel).join(', ');
 ---
 
 <div class="liste" data-rezeptliste>
@@ -111,6 +119,7 @@ const unterzeile = (r: Rezept) =>
               {gliederung === 'bereich' && r.art.length > 0 && <span class="karte-art">{r.art.map(artLabel).join(' & ')}</span>}
               <span class="karte-titel">{r.titel}</span>
               <span class="karte-unter">{unterzeile(r)}</span>
+              {quelle(r) && <span class="karte-quelle">{quelle(r)}</span>}
             </a>
           </li>
         ))}
@@ -252,6 +261,7 @@ const unterzeile = (r: Rezept) =>
   .karte-art { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--farbe); font-weight: 600; }
   .karte-titel { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.25; }
   .karte-unter { font-size: 0.85rem; color: var(--leise); }
+  .karte-quelle { margin-top: auto; padding-top: 0.2rem; font-size: 0.75rem; font-style: italic; color: var(--leise); }
   .leer { text-align: center; color: var(--leise); padding: 2rem 0; }
 </style>
 
