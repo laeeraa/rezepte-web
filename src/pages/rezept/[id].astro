@@ -4,6 +4,7 @@ import { Image } from 'astro:assets';
 import Layout from '../../layouts/Layout.astro';
 import { getRezepte, artLabel, formatZeit, type Rezept } from '../../lib/rezepte';
 import { tagLabel } from '../../lib/tags';
+import { mengenTeile, mengenAttribute } from '../../lib/mengen.mjs';
 
 export async function getStaticPaths() {
   const rezepte = await getRezepte();
@@ -18,6 +19,7 @@ const merkmale = rezept.tags.filter((t) => !t.startsWith('art/') && !t.startsWit
 const entdeckt = rezept.tags.filter((t) => t.startsWith('entdeckt/'));
 const filterLink = (tag: string) => `/rezepte?f=${tag}`;
 const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
+const portionen = data.portionen ? mengenTeile(data.portionen, { ende: true }) : [];
 ---
 
 <Layout titel={rezept.titel} schmal klasse={`b-${rezept.bereich.slug}`}>
@@ -40,7 +42,18 @@ const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
   </ul>
 
   <dl class="fakten">
-    {data.portionen && (<div><dt>Menge</dt><dd>{data.portionen}</dd></div>)}
+    <div class="menge-feld" data-regler hidden={!data.portionen}>
+      <dt>Menge</dt>
+      <dd>
+        <button type="button" class="stufe" data-schritt="-1" aria-label="Weniger" hidden>−</button>
+        <span data-portionen aria-live="polite">
+          {portionen.map((t) => (t.wert === undefined ? t.text : <span class="menge" {...mengenAttribute(t)}>{t.text}</span>))}
+          {!data.portionen && <span data-faktor>×1</span>}
+        </span>
+        <button type="button" class="stufe" data-schritt="1" aria-label="Mehr" hidden>+</button>
+        <button type="button" class="zurueck" data-zurueck hidden>Original</button>
+      </dd>
+    </div>
     {data.zeit && (<div><dt>Zeit</dt><dd>{formatZeit(data.zeit)}</dd></div>)}
     {entdeckt.length > 0 && (
       <div>
@@ -56,11 +69,20 @@ const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
     )}
   </dl>
 
-  <article class="rezepttext" data-rezepttext>
+  <p class="umgerechnet-hinweis leise" data-umgerechnet hidden></p>
+
+  <article class="rezepttext" data-rezepttext data-vollkorn={rezept.bereich.slug === 'brot-broetchen' ? '' : undefined}>
     <Content />
   </article>
 
-  <p class="hinweis leise">Tipp: Zutaten und Schritte antippen, um sie abzuhaken.</p>
+  <p class="hinweis leise">
+    Tipp: Zutaten und Schritte antippen, um sie abzuhaken.
+    <span data-regler-tipp hidden>Mit − und + bei „Menge“ die Zutaten umrechnen.</span>
+    <span data-vollkorn-tipp hidden>
+      „Vollkorn“ neben einem Mehl tauscht es gegen Vollkornmehl: 7,5 % der Mehlmenge kommen als Wasser dazu,
+      der Sauerteig wird anteilig weniger (bei ganz Vollkorn halbiert).
+    </span>
+  </p>
 </Layout>
 
 <style>
@@ -79,17 +101,193 @@ const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
     border-radius: var(--radius);
     box-shadow: var(--schatten);
   }
-  .fakten:empty { display: none; }
+  .fakten:not(:has(> div:not([hidden]))) { display: none; }
   .fakten dt { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--leise); }
   .fakten dd { margin: 0; }
+  .menge-feld dd { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .stufe {
+    font: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    border: 1px solid var(--linie);
+    background: var(--chip);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .stufe:disabled { opacity: 0.4; cursor: default; }
+  .zurueck {
+    font: inherit;
+    font-size: 0.85rem;
+    border: 0;
+    background: none;
+    color: var(--akzent);
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+  }
+  .umgerechnet-hinweis { font-size: 0.85rem; margin: 0 0 1rem; }
+  :global(.menge.umgerechnet), :global(.mehlname.getauscht) { color: var(--farbe, var(--akzent)); font-weight: 600; }
+  .rezepttext :global(.tausch) {
+    font: inherit;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    margin-left: 0.4rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--linie);
+    background: var(--chip);
+    color: var(--leise);
+    cursor: pointer;
+    vertical-align: 0.1em;
+  }
+  .rezepttext :global(.tausch[aria-pressed='true']) { background: var(--farbe, var(--text)); border-color: transparent; color: var(--karte); }
   .rezepttext :global(li) { cursor: pointer; }
   .rezepttext :global(li.erledigt) { text-decoration: line-through; color: var(--leise); }
   .hinweis { font-size: 0.85rem; margin-top: 2rem; }
 </style>
 
 <script>
-  document.querySelector('[data-rezepttext]')?.addEventListener('click', (e) => {
-    const li = (e.target as HTMLElement).closest('li');
-    if (li && !(e.target as HTMLElement).closest('a')) li.classList.toggle('erledigt');
+  import { WASSER_JE_MEHL, SAUERTEIG_WENIGER } from '../../lib/vollkorn.mjs';
+
+  const artikel = document.querySelector<HTMLElement>('[data-rezepttext]')!;
+  artikel.addEventListener('click', (e) => {
+    const ziel = e.target as HTMLElement;
+    const li = ziel.closest('li');
+    if (li && !ziel.closest('a, button')) li.classList.toggle('erledigt');
   });
+
+  // Mengen umrechnen und Mehl gegen Vollkorn tauschen. Mengen, Mehl, Wasser und Sauerteig
+  // sind beim Bauen markiert worden (src/lib/mengen.mjs, src/lib/vollkorn.mjs).
+  const mengen = [...document.querySelectorAll<HTMLElement>('.menge')];
+  const original = new Map(mengen.map((m) => [m, m.textContent!]));
+  const hinweis = document.querySelector<HTMLElement>('[data-umgerechnet]')!;
+  const regler = document.querySelector<HTMLElement>('[data-regler]')!;
+  const faktorText = regler.querySelector<HTMLElement>('[data-faktor]');
+  const [weniger, mehr] = regler.querySelectorAll<HTMLButtonElement>('[data-schritt]');
+  const zurueck = regler.querySelector<HTMLButtonElement>('[data-zurueck]')!;
+
+  const zeilen = (rolle: string) => [...artikel.querySelectorAll<HTMLElement>(`li[data-zutat="${rolle}"]`)];
+  const ersteMenge = (li: HTMLElement) => li.querySelector<HTMLElement>('.menge');
+  const gramm = (li: HTMLElement) => Number(ersteMenge(li)?.dataset.wert ?? 0);
+  const mehle = zeilen('mehl').filter((li) => li.querySelector('.mehlname'));
+  // Wasser vor Milch, jeweils zuerst in derselben ###-Gruppe wie das Mehl.
+  const fluessig = [...zeilen('wasser'), ...zeilen('milch')];
+  const sauerteig = zeilen('sauerteig').map(ersteMenge).filter((m) => m !== null);
+  const mehlGesamt = [...zeilen('mehl'), ...zeilen('vollkornmehl')].reduce((summe, li) => summe + gramm(li), 0);
+  const getauscht = new Set<HTMLElement>();
+
+  // Steht bei Menge eine ganze Stückzahl („10 Stück“, „4 Personen“), wird in Stück gezählt,
+  // sonst in festen Faktoren.
+  const basis = regler.querySelectorAll<HTMLElement>('.menge');
+  const n = basis.length && !('bis' in basis[0].dataset) && !('metrisch' in basis[0].dataset) ? Number(basis[0].dataset.wert) : 0;
+  const stufen = Number.isInteger(n) && n >= 2
+    ? Array.from({ length: 4 * n }, (_, i) => (i + 1) / n)
+    : [1 / 4, 1 / 3, 1 / 2, 2 / 3, 3 / 4, 1, 3 / 2, 2, 5 / 2, 3, 4];
+  const EINS = stufen.findIndex((f) => Math.abs(f - 1) < 1e-9);
+  let stufe = EINS;
+
+  const BRUECHE: [number, string][] = [[0, ''], [1 / 8, '⅛'], [1 / 4, '¼'], [1 / 3, '⅓'], [1 / 2, '½'], [2 / 3, '⅔'], [3 / 4, '¾'], [1, '']];
+  const zahl = (v: number, metrisch: boolean) => {
+    if (v >= 10) return String(Math.round(v));
+    if (metrisch) return (Math.round(v * 10) / 10).toLocaleString('de-DE');
+    let ganz = Math.floor(v);
+    const [wert, glyphe] = BRUECHE.reduce((a, b) => (Math.abs(b[0] - (v - ganz)) < Math.abs(a[0] - (v - ganz)) ? b : a));
+    if (wert === 1) ganz += 1;
+    return ganz ? `${ganz}${glyphe}` : glyphe || '⅛';
+  };
+
+  const zeigen = () => {
+    const f = stufen[stufe];
+
+    // Vollkorn: Die Flüssigkeit kommt in dieselbe ###-Gruppe wie das Mehl, sonst zur ersten im Teig.
+    const plus = new Map<HTMLElement, number>();
+    const wohin = new Set<string>();
+    let ohneFluessigkeit = 0;
+    let getauschtGramm = 0;
+    for (const li of getauscht) {
+      const zusatz = gramm(li) * WASSER_JE_MEHL;
+      getauschtGramm += gramm(li);
+      const ziel = fluessig.find((w) => w.dataset.gruppe === li.dataset.gruppe) ?? fluessig[0];
+      const m = ziel && ersteMenge(ziel);
+      if (m) {
+        plus.set(m, (plus.get(m) ?? 0) + zusatz);
+        wohin.add(ziel.dataset.zutat === 'milch' ? 'Milch' : 'Wasser');
+      } else ohneFluessigkeit += zusatz;
+    }
+    const sauerFaktor = mehlGesamt ? 1 - (SAUERTEIG_WENIGER * getauschtGramm) / mehlGesamt : 1;
+
+    for (const m of mengen) {
+      const zusatz = plus.get(m) ?? 0;
+      const mal = f * (sauerteig.includes(m) ? sauerFaktor : 1);
+      const geaendert = zusatz > 0 || Math.abs(mal - 1) > 1e-9;
+      m.classList.toggle('umgerechnet', geaendert);
+      if (!geaendert) { m.textContent = original.get(m)!; continue; }
+      const metrisch = 'metrisch' in m.dataset;
+      const von = zahl((Number(m.dataset.wert) + zusatz) * mal, metrisch);
+      const bis = m.dataset.bis ? zahl((Number(m.dataset.bis) + zusatz) * mal, metrisch) : von;
+      m.textContent = bis === von ? von : `${von}–${bis}`;
+    }
+
+    for (const li of mehle) {
+      const name = li.querySelector<HTMLElement>('.mehlname')!;
+      const tausch = getauscht.has(li);
+      name.textContent = tausch ? name.dataset.vollkorn! : name.dataset.original!;
+      name.classList.toggle('getauscht', tausch);
+    }
+
+    const saetze: string[] = [];
+    if (stufe !== EINS) saetze.push('Zutaten umgerechnet.');
+    if (getauscht.size) {
+      const mehrFluessig = (getauschtGramm * WASSER_JE_MEHL - ohneFluessigkeit) * f;
+      const teile = [];
+      if (wohin.size) teile.push(`${zahl(mehrFluessig, true)} g mehr ${[...wohin].join(' und ')}`);
+      if (sauerteig.length) teile.push(`${Math.round((1 - sauerFaktor) * 100)} % weniger Sauerteig`);
+      if (teile.length) saetze.push(`Vollkorn: ${teile.join(', ')}.`);
+      if (ohneFluessigkeit) saetze.push(`Keine Flüssigkeit in der Zutatenliste, also etwa ${zahl(ohneFluessigkeit * f, true)} g mehr einplanen.`);
+    }
+    if (saetze.length) saetze.push('Mengen im Text der Zubereitung bleiben wie im Original.');
+    hinweis.textContent = saetze.join(' ');
+    hinweis.hidden = !saetze.length;
+
+    if (faktorText) faktorText.textContent = `×${zahl(f, false)}`;
+    weniger.disabled = stufe === 0;
+    mehr.disabled = stufe === stufen.length - 1;
+    zurueck.hidden = stufe === EINS;
+  };
+
+  if (artikel.querySelector('.menge')) {
+    for (const knopf of [weniger, mehr]) {
+      knopf.hidden = false;
+      knopf.addEventListener('click', () => { stufe += Number(knopf.dataset.schritt); zeigen(); });
+    }
+    zurueck.addEventListener('click', () => { stufe = EINS; zeigen(); });
+    regler.hidden = false;
+    document.querySelector<HTMLElement>('[data-regler-tipp]')!.hidden = false;
+  }
+
+  if ('vollkorn' in artikel.dataset && mehle.length) {
+    for (const li of mehle) {
+      const name = li.querySelector<HTMLElement>('.mehlname')!;
+      name.dataset.original = name.textContent!;
+      const knopf = document.createElement('button');
+      knopf.type = 'button';
+      knopf.className = 'tausch';
+      knopf.textContent = 'Vollkorn';
+      knopf.setAttribute('aria-pressed', 'false');
+      knopf.addEventListener('click', () => {
+        const an = !getauscht.has(li);
+        if (an) getauscht.add(li);
+        else getauscht.delete(li);
+        knopf.setAttribute('aria-pressed', String(an));
+        zeigen();
+      });
+      (li.querySelector(':scope > p') ?? li).append(knopf);
+    }
+    document.querySelector<HTMLElement>('[data-vollkorn-tipp]')!.hidden = false;
+  }
+
+  zeigen();
 </script>
