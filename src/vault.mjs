@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 
 // Pfad zum Obsidian-Vault. Überschreibbar mit der Umgebungsvariable VAULT_DIR
 // (z. B. später für den Build auf Cloudflare, wo der Vault als Submodul liegt).
-export const VAULT_DIR = path.resolve(process.cwd(), process.env.VAULT_DIR ?? '../../Nextcloud/Notes/Rezepte');
+export const VAULT_DIR = path.resolve(process.cwd(), process.env.VAULT_DIR ?? '../Rezepte');
 export const VAULT_URL = pathToFileURL(VAULT_DIR + path.sep);
 
 export const BEREICHE = [

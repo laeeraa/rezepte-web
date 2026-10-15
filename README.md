@@ -13,7 +13,7 @@ npm run preview  # dist/ lokal ansehen
 npm run preview:worker  # wie online, mit Anmeldeseite, auf http://localhost:8787
 ```
 
-Der Vault wird standardmäßig unter `../../Nextcloud/Notes/Rezepte` erwartet.
+Der Vault wird standardmäßig unter `../Rezepte` erwartet (`C:\Users\lar\Projekte\Rezepte`).
 Ein anderer Pfad geht über die Umgebungsvariable `VAULT_DIR`.
 
 Astro speichert gerenderte Rezepte in `node_modules/.astro`. Nach Änderungen am Remark-Plugin
