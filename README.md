@@ -147,3 +147,5 @@ Das HTML wird beim Speichern erzeugt, nicht bei jedem Aufruf (`src/lib/rezepttex
 | `src/env.d.ts` | Typen für `env` aus `cloudflare:workers` |
 | `scripts/import-vault.mjs` | Liest den Obsidian-Vault einmalig ein und erzeugt SQL für ein Buch |
 | `scripts/neu-rendern.mjs` | Wandelt alle Texte neu um (HTML und Suchtext) |
+| `scripts/rezept-hinzufuegen.mjs` | Fügt ein Rezept aus einer Markdown-Datei (Frontmatter mit `titel`, `tags`, …) einem Buch hinzu |
+| `scripts/d1.mjs` | Gemeinsame Helfer der Skripte für `wrangler d1 execute` |

@@ -7,38 +7,24 @@
 //
 // Liest über `wrangler d1 execute`, rendert hier in Node (ohne Rechenzeit-Limit des Workers)
 // und schreibt die Änderungen als SQL-Datei, die danach eingespielt wird.
-import fs from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
+import { abfrage, ausfuehren, ortAus, q } from './d1.mjs';
 import { rezepttextRenderer } from '../src/lib/rezepttext.mjs';
 import { suchtext } from '../src/lib/suchtext.mjs';
 
 const { values: opt } = parseArgs({ options: { lokal: { type: 'boolean' }, remote: { type: 'boolean' } } });
-if (opt.lokal === opt.remote) {
-  console.error('Bitte --lokal oder --remote angeben.');
-  process.exit(1);
-}
-const ort = opt.remote ? '--remote' : '--local';
+const ort = ortAus(opt);
+const sql = [];
 
-function abfrage(sql) {
-  const ausgabe = execFileSync('npx', ['wrangler', 'd1', 'execute', 'rezepte', ort, '--json', '--command', sql], {
-    encoding: 'utf-8',
-    maxBuffer: 256 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
-  return JSON.parse(ausgabe)[0].results;
-}
-
-const buecher = abfrage(`SELECT id, slug, name FROM buch`);
+const buecher = abfrage(ort, `SELECT id, slug, name FROM buch`);
 const rezepte = abfrage(
+  ort,
   `SELECT r.id, r.buch_id, r.slug, r.titel, r.status, r.inhalt_md, r.inhalt_html, r.suchtext,
           (SELECT group_concat(t.name, char(31)) FROM rezept_tag rt JOIN tag t ON t.id = rt.tag_id WHERE rt.rezept_id = r.id) AS tag_namen
    FROM rezept r`,
 );
-const seiten = abfrage(`SELECT id, buch_id, slug, titel, inhalt_md, inhalt_html FROM seite`);
+const seiten = abfrage(ort, `SELECT id, buch_id, slug, titel, inhalt_md, inhalt_html FROM seite`);
 
-const q = (v) => `'${String(v).replace(/'/g, "''")}'`;
-const sql = [];
 let geaendert = 0;
 
 for (const buch of buecher) {
@@ -68,8 +54,5 @@ for (const buch of buecher) {
 console.log(`${buecher.length} Bücher, ${rezepte.length} Rezepte, ${seiten.length} Wissensseiten gelesen, ${geaendert} geändert.`);
 if (!sql.length) process.exit(0);
 
-const datei = '.import/neu-rendern.sql';
-fs.mkdirSync('.import', { recursive: true });
-fs.writeFileSync(datei, sql.join('\n') + '\n');
-execFileSync('npx', ['wrangler', 'd1', 'execute', 'rezepte', ort, '--file', datei], { stdio: ['ignore', 'ignore', 'inherit'] });
+ausfuehren(ort, sql, 'neu-rendern');
 console.log(`Eingespielt (${ort === '--remote' ? 'Cloudflare' : 'lokal'}).`);
