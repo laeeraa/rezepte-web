@@ -1,13 +1,15 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { ladeBuch, ladeEntwuerfe, ladeRezepte } from '../../lib/db';
+import { darfBearbeiten } from '../../lib/nutzer';
 import { abschnittId } from '../../lib/anzeige';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 if (!kontext) return new Response(null, { status: 404 });
 
 const basis = `/${kontext.buch.slug}`;
-const [rezepte, entwuerfe] = await Promise.all([ladeRezepte(kontext), ladeEntwuerfe(kontext)]);
+const darf = darfBearbeiten(Astro.locals.nutzer, kontext.buch.id);
+const [rezepte, entwuerfe] = await Promise.all([ladeRezepte(kontext), darf ? ladeEntwuerfe(kontext) : []]);
 const gliederungsTags = kontext.gruppen.filter((g) => g.darstellung === 'gliederung').flatMap((g) => g.tags);
 const kategorien = kontext.kategorien.map((k) => {
   const eigene = rezepte.filter((r) => r.kategorie.id === k.id);

@@ -110,6 +110,22 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
 }
 .nav a:hover { background: var(--chip); color: var(--text); }
 .nav a[aria-current='page'] { background: var(--chip); color: var(--text); font-weight: 600; }
+/* Name der angemeldeten Person: am Handy rechts neben dem Buchnamen, breit hinter der Navigation. */
+.konto {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  color: var(--leise);
+  text-decoration: none;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--linie);
+  border-radius: 999px;
+}
+.konto:hover, .konto[aria-current='page'] { color: var(--text); background: var(--chip); }
+@media (min-width: 48rem) {
+  .nav { order: 1; }
+  .konto { order: 2; }
+}
 
 /* Chips */
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }

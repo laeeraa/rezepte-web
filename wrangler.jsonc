@@ -1,11 +1,17 @@
 // Cloudflare Worker mit der Astro-Seite. Jede Anfrage wird im Worker gerendert und liest aus D1.
-// Den Einstieg baut @astrojs/cloudflare. Die Passwortabfrage steht in src/middleware.ts (Secret PASSWORT).
+// Den Einstieg baut @astrojs/cloudflare. Angemeldet wird über Cloudflare Access (src/lib/anmeldung.ts).
 // Erreichbar unter https://lieblingsrezepte.<account>.workers.dev
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lieblingsrezepte",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-09-28",
+  // Cloudflare Access: Team-Name (<team>.cloudflareaccess.com) und „Application Audience (AUD) Tag“
+  // der Access-App. Beides steht im Dashboard unter Zero Trust → Access → Applications.
+  "vars": {
+    "ACCESS_TEAM": "",
+    "ACCESS_AUD": ""
+  },
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist/client"

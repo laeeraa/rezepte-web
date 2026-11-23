@@ -11,5 +11,7 @@ export function zutatenText(md = '') {
 
 /** @param {{ titel: string, tagNamen: string[], md: string }} rezept */
 export function suchtext({ titel, tagNamen, md }) {
-  return [titel, ...tagNamen, zutatenText(md)].join(' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  // Tag-Namen sortiert, damit derselbe Text herauskommt, egal in welcher Reihenfolge die Tags kommen.
+  const tags = [...tagNamen].sort((a, b) => a.localeCompare(b, 'de'));
+  return [titel, ...tags, zutatenText(md)].join(' ').replace(/\s+/g, ' ').trim().toLowerCase();
 }

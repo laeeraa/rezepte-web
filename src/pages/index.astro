@@ -4,6 +4,7 @@ import { ladeBuecher } from '../lib/db';
 import { SEITENNAME } from '../lib/anzeige';
 
 const buecher = await ladeBuecher();
+const nutzer = Astro.locals.nutzer!;
 ---
 
 <Layout titel="Alle Rezeptbücher">
@@ -14,11 +15,15 @@ const buecher = await ladeBuecher();
       <li>
         <a href={`/${b.slug}`}>
           <span class="name">{b.name}</span>
+          {b.besitzer && <span class="von">von {b.besitzer}</span>}
           <span class="anzahl">{b.anzahl} {b.anzahl === 1 ? 'Rezept' : 'Rezepte'}</span>
         </a>
       </li>
     ))}
   </ul>
+  {nutzer.buecher.length === 0 && (
+    <p class="eigenes">Noch kein eigenes Rezeptbuch? <a href="/konto/buch-anlegen">Jetzt anlegen</a></p>
+  )}
 </Layout>
 
 <style>
@@ -45,4 +50,6 @@ const buecher = await ladeBuecher();
   .buecher a:hover .name { color: var(--akzent); }
   .name { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.2; }
   .anzahl { color: var(--leise); font-size: 0.9rem; }
+  .von { font-size: 0.95rem; }
+  .eigenes { margin-top: 2rem; }
 </style>

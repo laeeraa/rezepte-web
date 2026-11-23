@@ -1,0 +1,13 @@
+---
+import type { BuchKontext } from '../lib/db';
+
+interface Props {
+  kontext: BuchKontext;
+}
+const { kontext } = Astro.props;
+---
+
+<p>
+  Bearbeiten dürfen nur die, denen „{kontext.buch.name}“ gehört.
+  <a href={`/${kontext.buch.slug}`}>Zurück zum Buch</a> oder <a href="/konto">ein eigenes Rezeptbuch anlegen</a>.
+</p>

@@ -1,0 +1,152 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { ABMELDEN_URL } from '../../lib/anmeldung';
+import { aendereName, erstelleEinladung, ladeEinladungen, zieheEinladungZurueck } from '../../lib/nutzer';
+
+const nutzer = Astro.locals.nutzer!;
+let neuerLink = '';
+
+if (Astro.request.method === 'POST') {
+  const formular = await Astro.request.formData();
+  const aktion = formular.get('aktion');
+  if (aktion === 'einladen') {
+    neuerLink = new URL(`/einladung/${await erstelleEinladung(nutzer, String(formular.get('fuer') ?? ''))}`, Astro.url).href;
+  } else if (aktion === 'zurueckziehen') {
+    await zieheEinladungZurueck(nutzer, String(formular.get('token')));
+    return Astro.redirect('/konto#einladungen', 303);
+  } else if (aktion === 'name') {
+    const name = String(formular.get('name') ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (name) await aendereName(nutzer, name);
+    return Astro.redirect('/konto', 303);
+  }
+}
+
+const einladungen = await ladeEinladungen(nutzer);
+const offen = einladungen.filter((e) => !e.angenommenAm);
+const angenommen = einladungen.filter((e) => e.angenommenAm);
+const link = (token: string) => new URL(`/einladung/${token}`, Astro.url).href;
+const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDateString('de-DE', { day: 'numeric', month: 'long' });
+---
+
+<Layout titel="Mein Konto" schmal>
+  <h1>Mein Konto</h1>
+
+  <section>
+    <form method="post" class="zeile">
+      <input type="hidden" name="aktion" value="name" />
+      <label class="feld">
+        <span class="beschriftung">Name</span>
+        <input name="name" value={nutzer.name} required maxlength="60" />
+      </label>
+      <button type="submit" class="neben">Ändern</button>
+    </form>
+    <p class="leise">Angemeldet als {nutzer.email} · <a href={ABMELDEN_URL}>Abmelden</a></p>
+  </section>
+
+  <section>
+    <h2>Meine Rezeptbücher</h2>
+    {nutzer.buecher.length === 0 && <p>Du hast noch kein eigenes Rezeptbuch. Lesen kannst du trotzdem alle.</p>}
+    <ul class="liste">
+      {nutzer.buecher.map((b) => (
+        <li><a href={`/${b.slug}`}>{b.name}</a> <span class="leise">{b.rolle === 'besitzer' ? 'gehört dir' : 'du schreibst mit'}</span></li>
+      ))}
+    </ul>
+    <p><a class="knopf" href="/konto/buch-anlegen">+ Neues Rezeptbuch anlegen</a></p>
+  </section>
+
+  <section id="einladungen">
+    <h2>Freunde einladen</h2>
+    <p class="leise">
+      Ein Einladungslink gilt einmal und zwei Wochen lang. Wer ihn öffnet, meldet sich mit der eigenen E-Mail-Adresse an
+      und kann danach alle Rezeptbücher lesen und ein eigenes anlegen.
+    </p>
+    <form method="post" class="zeile">
+      <input type="hidden" name="aktion" value="einladen" />
+      <label class="feld">
+        <span class="beschriftung">Für wen? <span class="leise">nur als Notiz für dich</span></span>
+        <input name="fuer" maxlength="80" placeholder="z. B. Juli" autocomplete="off" />
+      </label>
+      <button type="submit" class="haupt">Link erzeugen</button>
+    </form>
+
+    {neuerLink && (
+      <div class="neu" role="status">
+        <p><strong>Neuer Einladungslink</strong>, zum Weiterschicken:</p>
+        <div class="kopieren">
+          <input readonly value={neuerLink} data-link />
+          <button type="button" class="neben" data-kopieren>Kopieren</button>
+        </div>
+      </div>
+    )}
+
+    {offen.length > 0 && (
+      <>
+        <h3>Offen</h3>
+        <ul class="liste">
+          {offen.map((e) => (
+            <li>
+              <span>{e.fuer ?? 'Ohne Notiz'} <span class="leise">bis {datum(e.gueltigBis)}</span></span>
+              <div class="kopieren">
+                <input readonly value={link(e.token)} data-link aria-label={`Einladungslink ${e.fuer ?? ''}`} />
+                <button type="button" class="neben" data-kopieren>Kopieren</button>
+                <form method="post">
+                  <input type="hidden" name="aktion" value="zurueckziehen" />
+                  <input type="hidden" name="token" value={e.token} />
+                  <button type="submit" class="leise-knopf">Zurückziehen</button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </>
+    )}
+
+    {angenommen.length > 0 && (
+      <>
+        <h3>Angenommen</h3>
+        <ul class="liste">
+          {angenommen.map((e) => (
+            <li>{e.angenommenVon ?? 'Gelöschte Person'} <span class="leise">{e.fuer && `(${e.fuer}) `}am {datum(e.angenommenAm!)}</span></li>
+          ))}
+        </ul>
+      </>
+    )}
+  </section>
+</Layout>
+
+<style>
+  section { margin-bottom: 2.5rem; }
+  h2 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+  h3 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
+  .zeile { display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap; }
+  .feld { display: grid; gap: 0.35rem; flex: 1; min-width: 12rem; }
+  .beschriftung { font-weight: 600; }
+  .beschriftung .leise { font-weight: 400; font-size: 0.85rem; }
+  input { font: inherit; padding: 0.55rem 0.75rem; border: 1px solid var(--linie); border-radius: 8px; background: var(--karte); color: var(--text); }
+  .haupt, .neben, .knopf { font: inherit; font-weight: 600; padding: 0.55rem 1.1rem; border-radius: 999px; cursor: pointer; text-decoration: none; display: inline-block; }
+  .haupt { border: 0; background: var(--akzent); color: var(--papier); }
+  .neben, .knopf { border: 1px solid var(--linie); background: var(--karte); color: var(--text); }
+  .leise-knopf { font: inherit; font-size: 0.85rem; border: 0; background: none; color: var(--leise); text-decoration: underline; cursor: pointer; }
+  .liste { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+  .liste li { display: grid; gap: 0.4rem; padding: 0.7rem 0.9rem; background: var(--karte); border-radius: var(--radius); box-shadow: var(--schatten); }
+  .liste a { font-weight: 600; }
+  .neu { margin-top: 1rem; padding: 0.75rem 1rem; border-left: 4px solid var(--akzent); background: var(--karte); border-radius: 8px; }
+  .neu p { margin: 0 0 0.5rem; }
+  .kopieren { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .kopieren input { flex: 1; min-width: 12rem; font-size: 0.85rem; }
+</style>
+
+<script>
+  for (const knopf of document.querySelectorAll<HTMLButtonElement>('[data-kopieren]')) {
+    knopf.addEventListener('click', async () => {
+      const feld = knopf.parentElement!.querySelector<HTMLInputElement>('[data-link]')!;
+      feld.select();
+      try {
+        await navigator.clipboard.writeText(feld.value);
+        knopf.textContent = 'Kopiert';
+      } catch {
+        knopf.textContent = 'Bitte von Hand kopieren';
+      }
+    });
+  }
+</script>

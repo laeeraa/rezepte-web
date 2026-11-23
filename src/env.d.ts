@@ -5,6 +5,7 @@ declare module 'cloudflare:workers' {
   interface D1Result<T = Record<string, unknown>> {
     results: T[];
     success: boolean;
+    meta?: { changes?: number };
   }
   interface D1PreparedStatement {
     bind(...werte: unknown[]): D1PreparedStatement;
@@ -33,6 +34,20 @@ declare module 'cloudflare:workers' {
   export const env: {
     DB: D1Database;
     BILDER: R2Bucket;
-    PASSWORT?: string;
+    /** Team-Name von Cloudflare Access: <team>.cloudflareaccess.com */
+    ACCESS_TEAM?: string;
+    /** „Application Audience (AUD) Tag“ der Access-App */
+    ACCESS_AUD?: string;
+    /** Nur lokal (.dev.vars): als wer man auf localhost angemeldet ist. */
+    LOKALE_ANMELDUNG?: string;
   };
+}
+
+declare namespace App {
+  interface Locals {
+    /** Angemeldete und eingeladene Person. Auf /einladung/… und /kein-zugang auch null. */
+    nutzer: import('./lib/nutzer').Nutzer | null;
+    /** E-Mail aus der Anmeldung, auch wenn die Person (noch) nicht eingeladen ist. */
+    email: string | null;
+  }
 }

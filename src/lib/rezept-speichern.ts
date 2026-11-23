@@ -83,6 +83,8 @@ export async function speichereRezept(
   e: RezeptEingabe,
   bisher?: RezeptRoh,
   bild: BildEingabe = { entfernen: false },
+  /** Wer speichert; bei neuen Rezepten als erstellt_von vermerkt. */
+  nutzerId?: string,
 ): Promise<Ergebnis> {
   const fehler: string[] = [];
   const slug = slugify(e.titel);
@@ -186,8 +188,8 @@ export async function speichereRezept(
   } else {
     anweisungen.push(
       db()
-        .prepare(`INSERT INTO rezept (id, buch_id, ${spalten.join(', ')}) VALUES (?, ?, ${spalten.map(() => '?').join(', ')})`)
-        .bind(id, k.buch.id, ...Object.values(werte)),
+        .prepare(`INSERT INTO rezept (id, buch_id, erstellt_von, ${spalten.join(', ')}) VALUES (?, ?, ?, ${spalten.map(() => '?').join(', ')})`)
+        .bind(id, k.buch.id, nutzerId ?? null, ...Object.values(werte)),
     );
   }
   anweisungen.push(db().prepare(`DELETE FROM rezept_tag WHERE rezept_id = ?`).bind(id));

@@ -1,0 +1,66 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { ABMELDEN_URL } from '../../lib/anmeldung';
+import { ladeOffeneEinladung, nimmEinladungAn } from '../../lib/nutzer';
+
+const { email, nutzer } = Astro.locals;
+const einladung = await ladeOffeneEinladung(Astro.params.token!);
+const vorschlag = email!.split('@')[0].split(/[._-]/)[0];
+let name = vorschlag ? vorschlag[0].toUpperCase() + vorschlag.slice(1) : '';
+let fehler = '';
+
+if (Astro.request.method === 'POST' && einladung && !nutzer) {
+  const formular = await Astro.request.formData();
+  name = String(formular.get('name') ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (!name) fehler = 'Bitte einen Namen angeben.';
+  else if (await nimmEinladungAn(einladung.token, email!, name)) {
+    return Astro.redirect(formular.get('weiter') === 'buch' ? '/konto/buch-anlegen' : '/', 303);
+  } else fehler = 'Diese Einladung gilt leider nicht mehr.';
+}
+if (!einladung && !nutzer) Astro.response.status = 404;
+---
+
+<Layout titel="Einladung" schmal>
+  {nutzer ? (
+    <>
+      <h1>Du bist schon dabei</h1>
+      <p>Als {nutzer.name} ({nutzer.email}) hast du schon Zugang. Diese Einladung kann jemand anderes nutzen.</p>
+      <p><a href="/">Zu den Rezeptbüchern</a></p>
+    </>
+  ) : !einladung ? (
+    <>
+      <h1>Einladung ungültig</h1>
+      <p>Dieser Link ist schon benutzt, abgelaufen oder zurückgezogen worden. Frag nach einem neuen.</p>
+    </>
+  ) : (
+    <>
+      <h1>Willkommen!</h1>
+      <p>{einladung.von} lädt dich zu den Lieblingsrezepten ein. Du kannst alle Rezeptbücher lesen und auch ein eigenes anlegen.</p>
+      <form method="post" class="formular">
+        {fehler && <p class="fehler" role="alert">{fehler}</p>}
+        <label class="feld">
+          <span class="beschriftung">Wie sollen die anderen dich sehen?</span>
+          <input name="name" value={name} required maxlength="60" autocomplete="given-name" />
+        </label>
+        <p class="leise klein">Angemeldet als {email}. <a href={ABMELDEN_URL}>Andere Adresse verwenden</a></p>
+        <div class="knoepfe">
+          <button type="submit" name="weiter" value="buch" class="haupt">Beitreten und eigenes Rezeptbuch anlegen</button>
+          <button type="submit" name="weiter" value="start" class="neben">Nur beitreten</button>
+        </div>
+      </form>
+    </>
+  )}
+</Layout>
+
+<style>
+  .formular { display: grid; gap: 1rem; margin-top: 1.5rem; }
+  .feld { display: grid; gap: 0.35rem; }
+  .beschriftung { font-weight: 600; }
+  input { font: inherit; padding: 0.6rem 0.75rem; border: 1px solid var(--linie); border-radius: 8px; background: var(--karte); color: var(--text); }
+  .klein { font-size: 0.85rem; margin: 0; }
+  .fehler { color: var(--fehler); margin: 0; }
+  .knoepfe { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .haupt, .neben { font: inherit; font-weight: 600; padding: 0.65rem 1.25rem; border-radius: 999px; cursor: pointer; }
+  .haupt { border: 0; background: var(--akzent); color: var(--papier); }
+  .neben { border: 1px solid var(--linie); background: var(--karte); color: var(--text); }
+</style>

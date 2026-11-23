@@ -4,6 +4,7 @@ import { ladeBuch, ladeRezept } from '../../../lib/db';
 import { abschnittId, formatZeit, host, mitDarstellung } from '../../../lib/anzeige';
 import { mengenTeile, mengenAttribute } from '../../../lib/mengen.mjs';
 import { bildUrl } from '../../../lib/bilder';
+import { darfBearbeiten } from '../../../lib/nutzer';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 const rezept = kontext && (await ladeRezept(kontext, Astro.params.slug!));
@@ -29,7 +30,9 @@ const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true 
         </>
       ))}
     </nav>
-    <a class="bearbeiten" href={`${basis}/rezept/${rezept.slug}/bearbeiten`}>Bearbeiten</a>
+    {darfBearbeiten(Astro.locals.nutzer, kontext.buch.id) && (
+      <a class="bearbeiten" href={`${basis}/rezept/${rezept.slug}/bearbeiten`}>Bearbeiten</a>
+    )}
   </div>
 
   {rezept.entwurf && (

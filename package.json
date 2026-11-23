@@ -10,12 +10,14 @@
     "check": "astro check",
     "db:migrate:lokal": "wrangler d1 migrations apply rezepte --local",
     "import:vault": "node scripts/import-vault.mjs",
-    "db:import:lokal": "wrangler d1 execute rezepte --local --file .import/lara.sql"
+    "db:import:lokal": "wrangler d1 execute rezepte --local --file .import/lara.sql",
+    "neu-rendern": "node scripts/neu-rendern.mjs"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.4.9",
     "astro": "^7.4.13",
     "github-slugger": "^2.0.0",
+    "jose": "^6.2.18",
     "rehype-stringify": "^10.0.1",
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",

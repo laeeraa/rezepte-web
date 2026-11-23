@@ -100,16 +100,20 @@ export interface SeiteVoll extends Seite {
 
 const db = () => env.DB;
 
-/** Alle Bücher mit der Zahl ihrer fertigen Rezepte, alphabetisch. */
-export async function ladeBuecher(): Promise<(Buch & { anzahl: number })[]> {
+/** Alle Bücher mit Besitzerin und der Zahl ihrer fertigen Rezepte, alphabetisch. */
+export async function ladeBuecher(): Promise<(Buch & { anzahl: number; besitzer: string | null })[]> {
   const { results } = await db()
     .prepare(
       `SELECT b.id, b.slug, b.name, b.schnellzugriff,
-              (SELECT count(*) FROM rezept r WHERE r.buch_id = b.id AND r.status = 'fertig') AS anzahl
+              (SELECT count(*) FROM rezept r WHERE r.buch_id = b.id AND r.status = 'fertig') AS anzahl,
+              (SELECT group_concat(n.name, ', ') FROM mitglied m JOIN nutzer n ON n.id = m.nutzer_id
+               WHERE m.buch_id = b.id AND m.rolle = 'besitzer') AS besitzer
        FROM buch b`,
     )
-    .all<BuchZeile & { anzahl: number }>();
-  return results.map((z) => ({ ...zuBuch(z), anzahl: z.anzahl })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
+    .all<BuchZeile & { anzahl: number; besitzer: string | null }>();
+  return results
+    .map((z) => ({ ...zuBuch(z), anzahl: z.anzahl, besitzer: z.besitzer }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'de'));
 }
 
 /** Buch mit Kategorien und Tagsystem, oder null, wenn es das Buch nicht gibt. */

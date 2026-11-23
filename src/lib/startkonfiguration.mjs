@@ -5,6 +5,7 @@
 // Bei Tags heißt `kategorien` „passt nur zu diesen Kategorien“. Fehlt das Feld, passt der Tag überall.
 // Felder der Gruppen und ihre Standardwerte stehen in migrations/0001_start.sql (Tabelle tag_gruppe).
 
+/** @type {{ slug: string, name: string, farbe: string, vollkornTausch?: boolean }[]} */
 export const KATEGORIEN = [
   { slug: 'suesses', name: 'Süßes', farbe: 'rosa' },
   { slug: 'brot-broetchen', name: 'Brot & Brötchen', farbe: 'lila', vollkornTausch: true },
@@ -12,8 +13,19 @@ export const KATEGORIEN = [
   { slug: 'getraenke', name: 'Getränke', farbe: 'petrol' },
 ];
 
+/** @param {...string} kategorien */
 const nur = (...kategorien) => ({ kategorien });
 
+/**
+ * @typedef {{ key: string, name: string, kategorien?: string[] }} TagVorlage
+ * @typedef {{
+ *   key: string, name: string, tags: TagVorlage[],
+ *   auswahl?: 'eins' | 'mehrere', pflicht?: boolean, frei?: boolean,
+ *   darstellung?: 'gliederung' | 'merkmal' | 'herkunft', filter?: 'oder' | 'und', aufKarte?: boolean,
+ * }} GruppenVorlage
+ */
+
+/** @type {GruppenVorlage[]} */
 export const TAG_GRUPPEN = [
   {
     key: 'art',

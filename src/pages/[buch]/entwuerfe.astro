@@ -1,18 +1,23 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { ladeBuch, ladeEntwuerfe } from '../../lib/db';
+import { darfBearbeiten } from '../../lib/nutzer';
+import KeineBerechtigung from '../../components/KeineBerechtigung.astro';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 if (!kontext) return new Response(null, { status: 404 });
 const basis = `/${kontext.buch.slug}`;
-const entwuerfe = await ladeEntwuerfe(kontext);
+const darf = darfBearbeiten(Astro.locals.nutzer, kontext.buch.id);
+if (!darf) Astro.response.status = 403;
+const entwuerfe = darf ? await ladeEntwuerfe(kontext) : [];
 const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 
 <Layout titel="Entwürfe" schmal kontext={kontext}>
   <h1>Entwürfe</h1>
-  <p class="leise">Noch nicht fertige Rezepte. Sie erscheinen nicht in Listen und Suche.</p>
-  {entwuerfe.length === 0 && <p>Keine Entwürfe.</p>}
+  {!darf && <KeineBerechtigung kontext={kontext} />}
+  {darf && <p class="leise">Noch nicht fertige Rezepte. Sie erscheinen nicht in Listen und Suche.</p>}
+  {darf && entwuerfe.length === 0 && <p>Keine Entwürfe.</p>}
   <ul class="liste">
     {entwuerfe.map((e) => (
       <li>

@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import RezeptListe from '../../components/RezeptListe.astro';
 import { ladeBuch, ladeRezepte } from '../../lib/db';
+import { darfBearbeiten } from '../../lib/nutzer';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 const kategorie = kontext?.kategorien.find((k) => k.slug === Astro.params.kategorie);
@@ -13,7 +14,9 @@ const rezepte = (await ladeRezepte(kontext)).filter((r) => r.kategorie.id === ka
 <Layout titel={kategorie.name} klasse={`f-${kategorie.farbe}`} kontext={kontext}>
   <div class="kopf">
     <h1 class="titel">{kategorie.name}</h1>
-    <a class="neu" href={`/${kontext.buch.slug}/neu?kategorie=${kategorie.slug}`}>+ Rezept hinzufügen</a>
+    {darfBearbeiten(Astro.locals.nutzer, kontext.buch.id) && (
+      <a class="neu" href={`/${kontext.buch.slug}/neu?kategorie=${kategorie.slug}`}>+ Rezept hinzufügen</a>
+    )}
   </div>
   <RezeptListe kontext={kontext} rezepte={rezepte} gliederung="tag" />
 </Layout>
