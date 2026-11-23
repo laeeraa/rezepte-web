@@ -38,6 +38,8 @@ declare module 'cloudflare:workers' {
     ACCESS_TEAM?: string;
     /** „Application Audience (AUD) Tag“ der Access-App */
     ACCESS_AUD?: string;
+    /** Eigene Domain der Seite; Anfragen an …workers.dev werden dorthin umgeleitet. */
+    DOMAIN?: string;
     /** Nur lokal (.dev.vars): als wer man auf localhost angemeldet ist. */
     LOKALE_ANMELDUNG?: string;
   };

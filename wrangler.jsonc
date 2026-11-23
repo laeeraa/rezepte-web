@@ -1,6 +1,6 @@
 // Cloudflare Worker mit der Astro-Seite. Jede Anfrage wird im Worker gerendert und liest aus D1.
 // Den Einstieg baut @astrojs/cloudflare. Angemeldet wird über Cloudflare Access (src/lib/anmeldung.ts).
-// Erreichbar unter https://lieblingsrezepte.<account>.workers.dev
+// Erreichbar unter https://lieblingsrezepte.cloud (vorher lieblingsrezepte.lara-heidenwag.workers.dev, leitet um)
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lieblingsrezepte",
@@ -9,6 +9,8 @@
   // Cloudflare Access: Team-Name (<team>.cloudflareaccess.com) und „Application Audience (AUD) Tag“
   // der Access-App. Beides steht im Dashboard unter Zero Trust → Access → Applications.
   "vars": {
+    // Eigene Domain (im Dashboard als „Benutzerdefinierte Domain“ am Worker). Die …workers.dev-Adresse leitet hierher um.
+    "DOMAIN": "lieblingsrezepte.cloud",
     "ACCESS_TEAM": "kochfreunde",
     "ACCESS_AUD": "811abc37a5c8d1d6fac0c1d88abe7f626b06722223dc3c051e399c8c427a0f43"
   },

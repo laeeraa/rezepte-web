@@ -4,6 +4,9 @@ Rezeptbücher für Freunde, gebaut mit [Astro](https://astro.build) als Cloudfla
 Jedes Buch hat eigene Kategorien und Tags. Alle Rezepte liegen in einer Cloudflare-D1-Datenbank,
 jede Seite wird pro Anfrage aus ihr gerendert.
 
+Erreichbar unter https://lieblingsrezepte.cloud. Die alte Adresse `lieblingsrezepte.lara-heidenwag.workers.dev`
+leitet mit Pfad dorthin um (`DOMAIN` in `wrangler.jsonc`, `src/middleware.ts`).
+
 Adressen: `/` (alle Bücher), `/lara`, `/lara/suesses`, `/lara/rezepte`, `/lara/rezept/pad-thai`, `/lara/wissen/…`.
 Alte Adressen ohne Buch (`/rezept/pad-thai`, `/suesses`, …) leiten auf `/lara/…` weiter (`src/middleware.ts`).
 
@@ -77,8 +80,8 @@ Migrationen in die echte Datenbank ein und veröffentlicht den Worker (`wrangler
 5. Cloudflare Access einrichten (nur für die Anmelde-Pfade, Lesen bleibt öffentlich):
    - Zero Trust → Settings → Authentication: Anmeldemethode **One-time PIN** hinzufügen.
    - Zero Trust → Access → Policies: Richtlinie „Alle mit E-Mail-Code“ anlegen (Action **Allow**, Include **Everyone**).
-   - Zero Trust → Access → Applications → **Self-hosted**, Sitzungsdauer 1 Monat. Als Ziele die Adresse des Workers
-     (`lieblingsrezepte.<account>.workers.dev`) mit den Pfaden `anmelden`, `konto`, `konto/*`, `einladung/*` und
+   - Zero Trust → Access → Applications → **Self-hosted**, Sitzungsdauer 1 Monat. Als Ziele die Domain
+     (`lieblingsrezepte.cloud`) mit den Pfaden `anmelden`, `konto`, `konto/*`, `einladung/*` und
      `bearbeiten/*`. Richtlinie „Alle mit E-Mail-Code“ zuweisen.
    - **Nicht** den Dialog „Worker-Zugriff verwalten“ beim Worker benutzen, der schützt die ganze Seite.
    - Team-Name (Zero Trust → Settings) und „Application Audience (AUD) Tag“ der App in `wrangler.jsonc` unter `vars` eintragen.

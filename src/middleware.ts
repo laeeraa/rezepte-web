@@ -1,4 +1,5 @@
 import { defineMiddleware } from 'astro:middleware';
+import { env } from 'cloudflare:workers';
 import { angemeldeteEmail } from './lib/anmeldung';
 import { ladeNutzer, ladeNutzerZurSitzung } from './lib/nutzer';
 import { sitzungsHash, starteSitzung } from './lib/sitzung';
@@ -15,6 +16,12 @@ const ALTES_BUCH = 'lara';
 const ALTE_ADRESSE = /^\/(rezept\/[^/]+|rezepte|wissen(\/[^/]+)?|suesses|brot-broetchen|herzhaftes|getraenke)\/?$/;
 
 export const onRequest = defineMiddleware(async ({ request, url, locals, cookies, redirect }, next) => {
+  // Alte Adresse (…workers.dev) auf die eigene Domain umleiten, mit Pfad und Suche.
+  if (env.DOMAIN && url.hostname.endsWith('.workers.dev')) {
+    const ziel = new URL(url.pathname + url.search, `https://${env.DOMAIN}`);
+    return Response.redirect(ziel, request.method === 'GET' || request.method === 'HEAD' ? 301 : 308);
+  }
+
   locals.email = null;
   locals.nutzer = null;
   const sitzung = await sitzungsHash(cookies);
