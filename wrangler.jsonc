@@ -9,8 +9,8 @@
   // Cloudflare Access: Team-Name (<team>.cloudflareaccess.com) und „Application Audience (AUD) Tag“
   // der Access-App. Beides steht im Dashboard unter Zero Trust → Access → Applications.
   "vars": {
-    "ACCESS_TEAM": "",
-    "ACCESS_AUD": ""
+    "ACCESS_TEAM": "kochfreunde",
+    "ACCESS_AUD": "811abc37a5c8d1d6fac0c1d88abe7f626b06722223dc3c051e399c8c427a0f43"
   },
   "assets": {
     "binding": "ASSETS",
