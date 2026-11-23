@@ -17,12 +17,12 @@
     "directory": "./dist/client"
   },
   // Datenbank mit allen Rezeptbüchern. Lokal (--local) liegt sie in .wrangler/.
-  // Vor dem ersten Deploy mit `npx wrangler d1 create rezepte` anlegen und die ID hier eintragen.
+  // Angelegt in Westeuropa (wrangler d1 create rezepte --location weur).
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "rezepte",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "17ebee89-6191-4d86-84b5-271936c1213b",
       "migrations_dir": "migrations"
     }
   ],
