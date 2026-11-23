@@ -3,23 +3,16 @@ import { env } from 'cloudflare:workers';
 import type { Nutzer } from './nutzer';
 import { KATEGORIEN, SCHNELLZUGRIFF, TAG_GRUPPEN } from './startkonfiguration.mjs';
 import { slugify } from './slug.mjs';
-
-// Adressen direkt unter / , die schon Seiten sind oder alte Links weiterleiten (src/middleware.ts).
-const RESERVIERT = new Set([
-  'bild', 'konto', 'einladung', 'anmelden', 'abmelden', 'bearbeiten', 'cdn-cgi', '_astro', 'api', 'admin', 'neu', '404',
-  'rezept', 'rezepte', 'wissen', 'suesses', 'brot-broetchen', 'herzhaftes', 'getraenke',
-]);
-const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+import { adressFehler } from './adressen.mjs';
 
 export const vorschlagSlug = (name: string) => slugify(name.split(/\s+/)[0] ?? '');
 
 export async function pruefeBuch(name: string, slug: string): Promise<string[]> {
   const fehler: string[] = [];
   if (!name.trim()) fehler.push('Der Name des Buchs fehlt.');
-  if (!SLUG.test(slug) || slug.length < 2 || slug.length > 30) {
-    fehler.push('Die Adresse darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten (2 bis 30 Zeichen).');
-  } else if (RESERVIERT.has(slug)) {
-    fehler.push(`Die Adresse „${slug}“ ist schon vergeben.`);
+  const adresse = adressFehler(slug);
+  if (adresse) {
+    fehler.push(adresse);
   } else if (await env.DB.prepare(`SELECT 1 FROM buch WHERE slug = ?`).bind(slug).first()) {
     fehler.push(`Die Adresse „${slug}“ ist schon vergeben.`);
   }

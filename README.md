@@ -141,11 +141,13 @@ Das HTML wird beim Speichern erzeugt, nicht bei jedem Aufruf (`src/lib/rezepttex
 | `src/lib/anmeldung.ts` | Token von Cloudflare Access prüfen, lokale Anmeldung |
 | `src/lib/sitzung.ts` | Sitzungs-Cookie der Seite (Hash in Tabelle `sitzung`) |
 | `src/lib/nutzer.ts` | Personen, ihre Bücher, Rechte, Einladungen |
-| `src/lib/buch-anlegen.ts` | Neues Buch aus der Startkonfiguration, erlaubte Adressen |
+| `src/lib/buch-anlegen.ts` | Neues Buch aus der Startkonfiguration |
+| `src/lib/adressen.mjs` | Erlaubte und reservierte Adressen für Bücher |
 | `src/components/RezeptListe.astro` | Liste mit Suche und kombinierbaren Filtern |
 | `src/pages/` | Alle Bücher, und je Buch: Start, Kategorien, alle Rezepte, Rezeptseite, Wissen, `neu`, `…/bearbeiten`, `entwuerfe` |
 | `src/env.d.ts` | Typen für `env` aus `cloudflare:workers` |
 | `scripts/import-vault.mjs` | Liest den Obsidian-Vault einmalig ein und erzeugt SQL für ein Buch |
 | `scripts/neu-rendern.mjs` | Wandelt alle Texte neu um (HTML und Suchtext) |
 | `scripts/rezept-hinzufuegen.mjs` | Fügt ein Rezept aus einer Markdown-Datei (Frontmatter mit `titel`, `tags`, …) einem Buch hinzu |
+| `scripts/buch-anlegen.mjs` | Legt ein Buch für eine Person an (Konto per E-Mail, ohne Einladung) |
 | `scripts/d1.mjs` | Gemeinsame Helfer der Skripte für `wrangler d1 execute` |
