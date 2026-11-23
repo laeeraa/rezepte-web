@@ -1,78 +1,80 @@
 ---
-import { render } from 'astro:content';
-import { Image } from 'astro:assets';
-import Layout from '../../layouts/Layout.astro';
-import { getRezepte, artLabel, formatZeit, type Rezept } from '../../lib/rezepte';
-import { tagLabel } from '../../lib/tags';
-import { mengenTeile, mengenAttribute } from '../../lib/mengen.mjs';
+import Layout from '../../../layouts/Layout.astro';
+import { ladeBuch, ladeRezept } from '../../../lib/db';
+import { abschnittId, formatZeit, host, mitDarstellung } from '../../../lib/anzeige';
+import { mengenTeile, mengenAttribute } from '../../../lib/mengen.mjs';
 
-export async function getStaticPaths() {
-  const rezepte = await getRezepte();
-  return rezepte.map((rezept) => ({ params: { id: rezept.id }, props: { rezept } }));
-}
+const kontext = await ladeBuch(Astro.params.buch!);
+const rezept = kontext && (await ladeRezept(kontext, Astro.params.slug!));
+if (!kontext || !rezept) return new Response(null, { status: 404 });
 
-const { rezept } = Astro.props as { rezept: Rezept };
-const { data } = rezept.entry;
-const { Content } = await render(rezept.entry);
-
-const merkmale = rezept.tags.filter((t) => !t.startsWith('art/') && !t.startsWith('entdeckt/'));
-const entdeckt = rezept.tags.filter((t) => t.startsWith('entdeckt/'));
-const filterLink = (tag: string) => `/rezepte?f=${tag}`;
-const host = (url: string) => new URL(url).hostname.replace(/^www\.|^m\./, '');
-const portionen = data.portionen ? mengenTeile(data.portionen, { ende: true }) : [];
+const basis = `/${kontext.buch.slug}`;
+const kategorieLink = `${basis}/${rezept.kategorie.slug}`;
+const gliederung = mitDarstellung(rezept.tags, 'gliederung');
+const merkmale = mitDarstellung(rezept.tags, 'merkmal');
+const herkunft = mitDarstellung(rezept.tags, 'herkunft');
+const filterLink = (voll: string) => `${basis}/rezepte?f=${voll}`;
+const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true }) : [];
 ---
 
-<Layout titel={rezept.titel} schmal klasse={`b-${rezept.bereich.slug}`}>
-  <nav class="pfad" aria-label="Brotkrumen">
-    <a href={`/${rezept.bereich.slug}`}>{rezept.bereich.ordner}</a>
-    {rezept.art.map((a) => (
-      <>
-        <span aria-hidden="true">›</span>
-        <a href={`/${rezept.bereich.slug}#art-${a}`}>{artLabel(a)}</a>
-      </>
-    ))}
-  </nav>
+<Layout titel={rezept.titel} schmal klasse={`f-${rezept.kategorie.farbe}`} kontext={kontext}>
+  <div class="oben">
+    <nav class="pfad" aria-label="Brotkrumen">
+      <a href={kategorieLink}>{rezept.kategorie.name}</a>
+      {gliederung.map((t) => (
+        <>
+          <span aria-hidden="true">›</span>
+          <a href={`${kategorieLink}#${abschnittId(t)}`}>{t.name}</a>
+        </>
+      ))}
+    </nav>
+    <a class="bearbeiten" href={`${basis}/rezept/${rezept.slug}/bearbeiten`}>Bearbeiten</a>
+  </div>
+
+  {rezept.entwurf && (
+    <p class="entwurf-hinweis">
+      <strong>Entwurf.</strong> Dieses Rezept erscheint noch nicht in Listen und Suche.
+    </p>
+  )}
 
   <h1>{rezept.titel}</h1>
 
-  {data.bild && <Image src={data.bild} alt={rezept.titel} width={1200} class="bild" />}
-
   <ul class="chips merkmale">
-    {merkmale.map((t) => <li><a class="chip" href={filterLink(t)}>{tagLabel(t)}</a></li>)}
+    {merkmale.map((t) => <li><a class="chip" href={filterLink(t.voll)}>{t.name}</a></li>)}
   </ul>
 
   <dl class="fakten">
-    <div class="menge-feld" data-regler hidden={!data.portionen}>
+    <div class="menge-feld" data-regler hidden={!rezept.portionen}>
       <dt>Menge</dt>
       <dd>
         <button type="button" class="stufe" data-schritt="-1" aria-label="Weniger" hidden>−</button>
         <span data-portionen aria-live="polite">
           {portionen.map((t) => (t.wert === undefined ? t.text : <span class="menge" {...mengenAttribute(t)}>{t.text}</span>))}
-          {!data.portionen && <span data-faktor>×1</span>}
+          {!rezept.portionen && <span data-faktor>×1</span>}
         </span>
         <button type="button" class="stufe" data-schritt="1" aria-label="Mehr" hidden>+</button>
         <button type="button" class="zurueck" data-zurueck hidden>Original</button>
       </dd>
     </div>
-    {data.zeit && (<div><dt>Zeit</dt><dd>{formatZeit(data.zeit)}</dd></div>)}
-    {entdeckt.length > 0 && (
+    {rezept.zeit && (<div><dt>Zeit</dt><dd>{formatZeit(rezept.zeit)}</dd></div>)}
+    {herkunft.length > 0 && (
       <div>
-        <dt>Entdeckt bei/in</dt>
-        <dd>{entdeckt.map((t, i) => <>{i > 0 && ', '}<a href={filterLink(t)}>{tagLabel(t)}</a></>)}</dd>
+        <dt>{herkunft[0].gruppe.name}</dt>
+        <dd>{herkunft.map((t, i) => <>{i > 0 && ', '}<a href={filterLink(t.voll)}>{t.name}</a></>)}</dd>
       </div>
     )}
-    {data.quelle.length > 0 && (
+    {rezept.quelle.length > 0 && (
       <div>
         <dt>Quelle</dt>
-        <dd>{data.quelle.map((q, i) => <>{i > 0 && ', '}<a href={q} rel="noopener noreferrer" target="_blank">{host(q)}</a></>)}</dd>
+        <dd>{rezept.quelle.map((q, i) => <>{i > 0 && ', '}<a href={q} rel="noopener noreferrer" target="_blank">{host(q)}</a></>)}</dd>
       </div>
     )}
   </dl>
 
   <p class="umgerechnet-hinweis leise" data-umgerechnet hidden></p>
 
-  <article class="rezepttext" data-rezepttext data-vollkorn={rezept.bereich.slug === 'brot-broetchen' ? '' : undefined}>
-    <Content />
+  <article class="rezepttext" data-rezepttext data-vollkorn={rezept.kategorie.vollkornTausch ? '' : undefined}>
+    <Fragment set:html={rezept.inhaltHtml} />
   </article>
 
   <p class="hinweis leise">
@@ -86,10 +88,13 @@ const portionen = data.portionen ? mengenTeile(data.portionen, { ende: true }) :
 </Layout>
 
 <style>
+  .oben { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  .bearbeiten { font-size: 0.9rem; color: var(--leise); }
+  .bearbeiten:hover { color: var(--farbe); }
+  .entwurf-hinweis { margin: 0.75rem 0 0; padding: 0.5rem 0.9rem; border-radius: 8px; background: var(--chip); font-size: 0.9rem; }
   .pfad { display: flex; gap: 0.4rem; font-size: 0.9rem; flex-wrap: wrap; }
   .pfad a { color: var(--farbe); text-decoration: none; font-weight: 600; }
   .pfad span { color: var(--leise); }
-  .bild { width: 100%; border-radius: var(--radius); margin-bottom: 1rem; }
   .merkmale { margin-bottom: 1rem; }
   .fakten {
     display: flex;
@@ -150,7 +155,7 @@ const portionen = data.portionen ? mengenTeile(data.portionen, { ende: true }) :
 </style>
 
 <script>
-  import { WASSER_JE_MEHL, SAUERTEIG_WENIGER } from '../../lib/vollkorn.mjs';
+  import { WASSER_JE_MEHL, SAUERTEIG_WENIGER } from '../../../lib/vollkorn.mjs';
 
   const artikel = document.querySelector<HTMLElement>('[data-rezepttext]')!;
   artikel.addEventListener('click', (e) => {
@@ -160,7 +165,7 @@ const portionen = data.portionen ? mengenTeile(data.portionen, { ende: true }) :
   });
 
   // Mengen umrechnen und Mehl gegen Vollkorn tauschen. Mengen, Mehl, Wasser und Sauerteig
-  // sind beim Bauen markiert worden (src/lib/mengen.mjs, src/lib/vollkorn.mjs).
+  // sind beim Speichern markiert worden (src/lib/mengen.mjs, src/lib/vollkorn.mjs).
   const mengen = [...document.querySelectorAll<HTMLElement>('.menge')];
   const original = new Map(mengen.map((m) => [m, m.textContent!]));
   const hinweis = document.querySelector<HTMLElement>('[data-umgerechnet]')!;

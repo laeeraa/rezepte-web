@@ -1,12 +1,10 @@
-# Baut die Seite aus diesem Repo und dem Vault-Repo und veröffentlicht sie als Cloudflare Worker.
-# Läuft bei Pushes hierher, bei Pushes in den Vault (über repository_dispatch) und von Hand.
+# Baut die Seite, bringt das Datenbankschema auf den neuesten Stand und veröffentlicht sie als Cloudflare Worker.
+# Die Rezepte liegen in D1, ein Push ist nur für Änderungen am Code nötig.
 name: Deploy
 
 on:
   push:
     branches: [main]
-  repository_dispatch:
-    types: [vault-aktualisiert]
   workflow_dispatch:
 
 # Nie zwei Deploys gleichzeitig; ein neuerer ersetzt einen wartenden.
@@ -18,15 +16,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Website-Code holen
-        uses: actions/checkout@v4
-
-      - name: Vault holen
-        uses: actions/checkout@v4
-        with:
-          repository: laeeraa/rezepte-vault
-          token: ${{ secrets.VAULT_TOKEN }}
-          path: vault
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -37,10 +27,16 @@ jobs:
 
       - name: Seite bauen
         run: npm run build
-        env:
-          VAULT_DIR: vault
 
-      # Name, Ordner und Domain stehen in wrangler.jsonc.
+      # Spielt neue Dateien aus migrations/ in die echte Datenbank ein. Schon eingespielte werden übersprungen.
+      - name: Datenbankschema aktualisieren
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply rezepte --remote
+
+      # Name, Datenbank und Domain stehen in wrangler.jsonc.
       - name: Auf Cloudflare veröffentlichen
         uses: cloudflare/wrangler-action@v3
         with:

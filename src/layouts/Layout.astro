@@ -1,21 +1,28 @@
 ---
 import '../styles/global.css';
-import { BEREICHE } from '../vault.mjs';
+import type { BuchKontext } from '../lib/db';
+import { SEITENNAME } from '../lib/anzeige';
 
 interface Props {
   titel?: string;
   schmal?: boolean;
   klasse?: string;
+  /** Fehlt auf Seiten außerhalb eines Buchs (Übersicht aller Bücher). */
+  kontext?: BuchKontext;
 }
 
-const { titel, schmal = false, klasse = '' } = Astro.props;
-const NAME = "Lara's Lieblingsrezepte";
+const { titel, schmal = false, klasse = '', kontext } = Astro.props;
+const NAME = kontext?.buch.name ?? SEITENNAME;
+const start = kontext ? `/${kontext.buch.slug}` : '/';
 const pfad = Astro.url.pathname.replace(/\/$/, '') || '/';
-const links = [
-  ...BEREICHE.map((b) => ({ href: `/${b.slug}`, text: b.ordner })),
-  { href: '/rezepte', text: 'Alle Rezepte' },
-  { href: '/wissen', text: 'Wissen' },
-];
+const links = kontext
+  ? [
+      ...kontext.kategorien.map((k) => ({ href: `${start}/${k.slug}`, text: k.name })),
+      { href: `${start}/rezepte`, text: 'Alle Rezepte' },
+      { href: `${start}/wissen`, text: 'Wissen' },
+      { href: `${start}/neu`, text: '+ Neues Rezept' },
+    ]
+  : [];
 ---
 
 <!doctype html>
@@ -30,17 +37,21 @@ const links = [
   <body class={klasse}>
     <header class="kopf">
       <div class="kopf-innen">
-        <a class="marke" href="/">{NAME}</a>
-        <nav class="nav" aria-label="Bereiche">
-          {links.map((l) => (
-            <a href={l.href} aria-current={pfad === l.href || pfad.startsWith(l.href + '/') ? 'page' : undefined}>{l.text}</a>
-          ))}
-        </nav>
+        <a class="marke" href={start}>{NAME}</a>
+        {links.length > 0 && (
+          <nav class="nav" aria-label="Bereiche">
+            {links.map((l) => (
+              <a href={l.href} aria-current={pfad === l.href || pfad.startsWith(l.href + '/') ? 'page' : undefined}>{l.text}</a>
+            ))}
+          </nav>
+        )}
       </div>
     </header>
     <main class:list={['inhalt', { schmal }]}>
       <slot />
     </main>
-    <footer class="fuss">{NAME}</footer>
+    <footer class="fuss">
+      {kontext ? <>{NAME} · <a href="/">Alle Rezeptbücher</a></> : NAME}
+    </footer>
   </body>
 </html>

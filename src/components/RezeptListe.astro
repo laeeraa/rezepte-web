@@ -1,67 +1,61 @@
 ---
-import { Image } from 'astro:assets';
-import type { Rezept } from '../lib/rezepte';
-import { artLabel } from '../lib/rezepte';
-import { BEREICHE } from '../vault.mjs';
-import { EIGENSTAENDIG, GRUPPEN, tagLabel } from '../lib/tags';
+import type { BuchKontext, RezeptKurz, Tag } from '../lib/db';
+import { abschnittId, mitDarstellung } from '../lib/anzeige';
 
 interface Props {
-  rezepte: Rezept[];
-  /** Abschnitte nach Art (Bereichsseiten) oder nach Bereich (Alle Rezepte). */
-  gliederung: 'art' | 'bereich';
+  kontext: BuchKontext;
+  rezepte: RezeptKurz[];
+  /** Abschnitte nach dem Gliederungs-Tag, z. B. Art (Kategorieseiten), oder nach Kategorie (Alle Rezepte). */
+  gliederung: 'tag' | 'kategorie';
 }
 
-const { rezepte, gliederung } = Astro.props;
-const vorhanden = new Set(rezepte.flatMap((r) => r.tags));
+const { kontext, rezepte, gliederung } = Astro.props;
+const basis = `/${kontext.buch.slug}`;
+const vorhanden = new Set(rezepte.flatMap((r) => r.tags.map((t) => t.id)));
+const nurVorhandene = (tags: Tag[]) => tags.filter((t) => vorhanden.has(t.id));
 
+// Gruppen mit Filter „und“: Jeder Tag bildet eine eigene Gruppe, damit alle gewählten zutreffen müssen.
 type Chip = { tag: string; label: string; gruppe: string };
-const gruppe = (name: keyof typeof GRUPPEN): Chip[] =>
-  Object.entries(GRUPPEN[name].werte)
-    .map(([wert, label]) => ({ tag: `${name}/${wert}`, label, gruppe: name }))
-    .filter((c) => vorhanden.has(c.tag));
+const filterGruppen = kontext.gruppen
+  .filter((g) => g.darstellung === 'merkmal')
+  .map((g) => ({
+    titel: g.name,
+    chips: nurVorhandene(g.tags).map((t): Chip => ({ tag: t.voll, label: t.name, gruppe: g.filter === 'und' ? t.voll : g.key })),
+  }))
+  .filter((g) => g.chips.length > 0);
 
-// Besonderheiten werden mit "und" verknüpft, deshalb bekommt jede eine eigene Gruppe.
-const besonderes: Chip[] = [
-  ...Object.entries(EIGENSTAENDIG).filter(([t]) => t !== 'todo').map(([tag, label]) => ({ tag, label, gruppe: tag })),
-  { tag: 'aufwand/schnell', label: 'Schnell', gruppe: 'aufwand/schnell' },
-].filter((c) => vorhanden.has(c.tag));
+// Herkunft (Entdeckt bei/in) als Auswahlliste, weil es viele Werte sind.
+const auswahlGruppen = kontext.gruppen
+  .filter((g) => g.darstellung === 'herkunft')
+  .map((g) => ({ key: g.key, titel: g.name, tags: nurVorhandene(g.tags).sort((a, b) => a.name.localeCompare(b.name, 'de')) }))
+  .filter((g) => g.tags.length > 0);
 
-// Bereich und Art sind keine Filter, sondern gliedern die Liste in Abschnitte.
-const filterGruppen = [
-  { titel: 'Ernährung', chips: gruppe('ernaehrung') },
-  { titel: 'Mahlzeit', chips: gruppe('mahlzeit') },
-  { titel: 'Küche', chips: gruppe('kueche') },
-  { titel: 'Besonderes', chips: besonderes },
-].filter((g) => g.chips.length > 0);
-
-type Abschnitt = { id: string; titel: string; klasse?: string; rezepte: Rezept[] };
-const artReihenfolge = Object.keys(GRUPPEN.art.werte);
-const abschnitte: Abschnitt[] = (
-  gliederung === 'bereich'
-    ? BEREICHE.map((b) => ({ id: `bereich-${b.slug}`, titel: b.ordner, klasse: `b-${b.slug}`, rezepte: rezepte.filter((r) => r.bereich.slug === b.slug) }))
-    : rezepte.some((r) => r.art.length)
-      ? artReihenfolge.map((a) => ({ id: `art-${a}`, titel: artLabel(a), rezepte: rezepte.filter((r) => r.art.includes(a)) }))
-      : [{ id: 'alle', titel: '', rezepte }]
-).filter((a) => a.rezepte.length > 0);
+type Abschnitt = { id: string; titel: string; klasse?: string; rezepte: RezeptKurz[] };
+const gliederungsTags = kontext.gruppen.filter((g) => g.darstellung === 'gliederung').flatMap((g) => g.tags);
+let abschnitte: Abschnitt[];
+if (gliederung === 'kategorie') {
+  abschnitte = kontext.kategorien.map((k) => ({
+    id: `kategorie-${k.slug}`,
+    titel: k.name,
+    klasse: `f-${k.farbe}`,
+    rezepte: rezepte.filter((r) => r.kategorie.id === k.id),
+  }));
+} else {
+  const ohne = rezepte.filter((r) => !mitDarstellung(r.tags, 'gliederung').length);
+  abschnitte = ohne.length === rezepte.length
+    ? [{ id: 'alle', titel: '', rezepte }]
+    : [
+        ...gliederungsTags.map((t) => ({ id: abschnittId(t), titel: t.name, rezepte: rezepte.filter((r) => r.tags.includes(t)) })),
+        { id: 'weitere', titel: 'Weitere', rezepte: ohne },
+      ];
+}
+abschnitte = abschnitte.filter((a) => a.rezepte.length > 0);
 const mitLeiste = abschnitte.length > 1;
 
-const entdeckt = [...vorhanden]
-  .filter((t) => t.startsWith('entdeckt/'))
-  .map((tag) => ({ tag, label: tagLabel(tag) }))
-  .sort((a, b) => a.label.localeCompare(b.label, 'de'));
-
-const unterzeile = (r: Rezept) =>
-  [
-    tagLabel(r.tags.find((t) => t.startsWith('ernaehrung/'))!),
-    r.tags.includes('sauerteig') && 'Sauerteig',
-    r.tags.includes('vortag') && 'Vortag',
-    r.tags.includes('aufwand/schnell') && 'schnell',
-  ]
-    .filter(Boolean)
-    .join(' · ');
-
-const quelle = (r: Rezept) =>
-  r.tags.filter((t) => t.startsWith('entdeckt/')).map(tagLabel).join(', ');
+const namen = (tags: Tag[]) => tags.map((t) => t.name);
+const unterzeile = (r: RezeptKurz) => namen(r.tags.filter((t) => t.gruppe.aufKarte)).join(' · ');
+const quelle = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'herkunft')).join(', ');
+const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(' & ');
 ---
 
 <div class="liste" data-rezeptliste>
@@ -91,15 +85,15 @@ const quelle = (r: Rezept) =>
         </ul>
       </div>
     ))}
-    {entdeckt.length > 0 && (
+    {auswahlGruppen.map((g) => (
       <div class="filtergruppe">
-        <label class="gruppentitel" for="entdeckt-auswahl">Entdeckt bei/in</label>
-        <select id="entdeckt-auswahl" data-entdeckt>
+        <label class="gruppentitel" for={`auswahl-${g.key}`}>{g.titel}</label>
+        <select id={`auswahl-${g.key}`} data-auswahl={g.key}>
           <option value="">alle</option>
-          {entdeckt.map((e) => <option value={e.tag}>{e.label}</option>)}
+          {g.tags.map((t) => <option value={t.voll}>{t.name}</option>)}
         </select>
       </div>
-    )}
+    ))}
   </details>
 
   <div class="status">
@@ -113,10 +107,9 @@ const quelle = (r: Rezept) =>
       {a.titel && <h2 class="abschnitt-titel">{a.titel} <span class="zahl" data-zahl>{a.rezepte.length}</span></h2>}
       <ul class="karten">
         {a.rezepte.map((r) => (
-          <li class:list={['karte', `b-${r.bereich.slug}`]} data-id={r.id} data-tags={r.tags.join(' ')} data-text={r.suchtext}>
-            <a href={`/rezept/${r.id}`}>
-              {r.entry.data.bild && <Image src={r.entry.data.bild} alt="" width={480} class="karte-bild" />}
-              {gliederung === 'bereich' && r.art.length > 0 && <span class="karte-art">{r.art.map(artLabel).join(' & ')}</span>}
+          <li class:list={['karte', `f-${r.kategorie.farbe}`]} data-id={r.id} data-tags={r.tags.map((t) => t.voll).join(' ')} data-text={r.suchtext}>
+            <a href={`${basis}/rezept/${r.slug}`}>
+              {gliederung === 'kategorie' && art(r) && <span class="karte-art">{art(r)}</span>}
               <span class="karte-titel">{r.titel}</span>
               <span class="karte-unter">{unterzeile(r)}</span>
               {quelle(r) && <span class="karte-quelle">{quelle(r)}</span>}
@@ -257,7 +250,6 @@ const quelle = (r: Rezept) =>
     text-decoration: none;
   }
   .karte a:hover .karte-titel { color: var(--farbe); }
-  .karte-bild { width: calc(100% + 2rem); max-width: none; margin: -0.85rem -1rem 0.5rem; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--radius) var(--radius) 0 0; }
   .karte-art { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--farbe); font-weight: 600; }
   .karte-titel { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.25; }
   .karte-unter { font-size: 0.85rem; color: var(--leise); }
@@ -269,7 +261,7 @@ const quelle = (r: Rezept) =>
   const box = document.querySelector<HTMLElement>('[data-rezeptliste]')!;
   const suche = box.querySelector<HTMLInputElement>('[data-suche]')!;
   const chips = [...box.querySelectorAll<HTMLButtonElement>('button[data-tag]')];
-  const entdeckt = box.querySelector<HTMLSelectElement>('[data-entdeckt]');
+  const auswahlen = [...box.querySelectorAll<HTMLSelectElement>('[data-auswahl]')];
   const karten = [...box.querySelectorAll<HTMLElement>('.karte')];
   const anzahl = box.querySelector('[data-anzahl]')!;
   const leer = box.querySelector<HTMLElement>('[data-leer]')!;
@@ -284,7 +276,7 @@ const quelle = (r: Rezept) =>
     const eintraege: { wert: string; text: string }[] = chips
       .filter((c) => c.getAttribute('aria-pressed') === 'true')
       .map((c) => ({ wert: c.dataset.tag!, text: c.textContent! }));
-    if (entdeckt?.value) eintraege.push({ wert: entdeckt.value, text: entdeckt.selectedOptions[0].text });
+    for (const a of auswahlen) if (a.value) eintraege.push({ wert: a.value, text: a.selectedOptions[0].text });
     if (suche.value.trim()) eintraege.push({ wert: 'suche', text: `„${suche.value.trim()}“` });
     aktivListe.replaceChildren(
       ...eintraege.map(({ wert, text }) => {
@@ -309,14 +301,14 @@ const quelle = (r: Rezept) =>
     const wert = (e.target as HTMLElement).closest<HTMLElement>('[data-entfernen]')?.dataset.entfernen;
     if (!wert) return;
     if (wert === 'suche') suche.value = '';
-    else if (entdeckt && wert === entdeckt.value) entdeckt.value = '';
+    else if (auswahlen.some((a) => a.value === wert)) auswahlen.find((a) => a.value === wert)!.value = '';
     else chips.find((c) => c.dataset.tag === wert)?.setAttribute('aria-pressed', 'false');
     anwenden();
   });
 
   function aktive() {
     const tags = chips.filter((c) => c.getAttribute('aria-pressed') === 'true').map((c) => c.dataset.tag!);
-    if (entdeckt?.value) tags.push(entdeckt.value);
+    for (const a of auswahlen) if (a.value) tags.push(a.value);
     return tags;
   }
 
@@ -327,7 +319,7 @@ const quelle = (r: Rezept) =>
       const g = c.dataset.gruppe!;
       gruppen.set(g, [...(gruppen.get(g) ?? []), c.dataset.tag!]);
     }
-    if (entdeckt?.value) gruppen.set('entdeckt', [entdeckt.value]);
+    for (const a of auswahlen) if (a.value) gruppen.set(a.dataset.auswahl!, [a.value]);
     const woerter = suche.value.toLowerCase().split(/\s+/).filter(Boolean);
 
     // Ein Rezept kann in mehreren Abschnitten stehen (z. B. Gulasch), gezählt wird es einmal.
@@ -368,11 +360,11 @@ const quelle = (r: Rezept) =>
     history.replaceState(null, '', (query ? `?${query}` : location.pathname) + location.hash);
   }
 
-  // Zustand aus der URL übernehmen (z. B. Links von Rezeptseiten: /rezepte?f=ernaehrung/vegan)
+  // Zustand aus der URL übernehmen (z. B. Links von Rezeptseiten: /lara/rezepte?f=ernaehrung/vegan)
   const params = new URLSearchParams(location.search);
   const start = new Set((params.get('f') ?? '').split(',').filter(Boolean));
   for (const c of chips) if (start.has(c.dataset.tag!)) c.setAttribute('aria-pressed', 'true');
-  if (entdeckt) for (const t of start) if (t.startsWith('entdeckt/')) entdeckt.value = t;
+  for (const a of auswahlen) for (const t of start) if (t.startsWith(`${a.dataset.auswahl}/`)) a.value = t;
   suche.value = params.get('q') ?? '';
 
   chips.forEach((c) =>
@@ -381,11 +373,11 @@ const quelle = (r: Rezept) =>
       anwenden();
     }),
   );
-  entdeckt?.addEventListener('change', anwenden);
+  auswahlen.forEach((a) => a.addEventListener('change', anwenden));
   suche.addEventListener('input', anwenden);
   reset.addEventListener('click', () => {
     chips.forEach((c) => c.setAttribute('aria-pressed', 'false'));
-    if (entdeckt) entdeckt.value = '';
+    auswahlen.forEach((a) => (a.value = ''));
     suche.value = '';
     anwenden();
   });

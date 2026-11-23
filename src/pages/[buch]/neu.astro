@@ -1,0 +1,28 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import RezeptFormular from '../../components/RezeptFormular.astro';
+import { ladeBuch } from '../../lib/db';
+import { eingabeAusFormular, leereEingabe, speichereRezept } from '../../lib/rezept-speichern';
+
+const kontext = await ladeBuch(Astro.params.buch!);
+if (!kontext) return new Response(null, { status: 404 });
+const basis = `/${kontext.buch.slug}`;
+
+let werte = leereEingabe();
+// Aus einer Kategorieseite heraus ist die Kategorie schon gewählt (/lara/neu?kategorie=suesses).
+werte.kategorie = Astro.url.searchParams.get('kategorie') ?? '';
+let fehler: string[] = [];
+
+if (Astro.request.method === 'POST') {
+  werte = eingabeAusFormular(await Astro.request.formData());
+  const ergebnis = await speichereRezept(kontext, werte);
+  if (ergebnis.ok) return Astro.redirect(`${basis}/rezept/${ergebnis.slug}`, 303);
+  fehler = ergebnis.fehler;
+  Astro.response.status = 422;
+}
+---
+
+<Layout titel="Neues Rezept" schmal kontext={kontext}>
+  <h1>Neues Rezept</h1>
+  <RezeptFormular kontext={kontext} werte={werte} fehler={fehler} zurueck={basis} />
+</Layout>

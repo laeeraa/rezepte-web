@@ -6,10 +6,16 @@
   --linie: #e6ded3;
   --chip: #f1ebe2;
   --akzent: #9a4a26;
-  --suesses: #b0456a;
-  --brot-broetchen: #7a4fa3;
-  --herzhaftes: #4d7a45;
-  --getraenke: #2f7a86;
+  --fehler: #b3261e;
+  /* Palette für Kategorien (Spalte kategorie.farbe). Jede Farbe hat eine dunkle Variante unten. */
+  --rosa: #b0456a;
+  --lila: #7a4fa3;
+  --gruen: #4d7a45;
+  --petrol: #2f7a86;
+  --orange: #a8531c;
+  --blau: #3b5f9e;
+  --senf: #846a12;
+  --grau: #6f665d;
   --schatten: 0 1px 2px rgb(60 40 20 / 0.06), 0 2px 8px rgb(60 40 20 / 0.05);
   --radius: 12px;
   --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
@@ -26,10 +32,15 @@
     --linie: #3a3530;
     --chip: #332f2a;
     --akzent: #e08a5f;
-    --suesses: #e27d9f;
-    --brot-broetchen: #b597e3;
-    --herzhaftes: #8cbf7f;
-    --getraenke: #6cbccb;
+    --fehler: #f2847c;
+    --rosa: #e27d9f;
+    --lila: #b597e3;
+    --gruen: #8cbf7f;
+    --petrol: #6cbccb;
+    --orange: #e9a06b;
+    --blau: #8fb0e8;
+    --senf: #d9bd5c;
+    --grau: #a89f95;
     --schatten: none;
     color-scheme: dark;
   }
@@ -118,11 +129,15 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
 .chip:hover { border-color: var(--linie); }
 .chip[aria-pressed='true'] { background: var(--text); color: var(--papier); }
 
-/* Bereichsfarben */
-.b-suesses { --farbe: var(--suesses); }
-.b-brot-broetchen { --farbe: var(--brot-broetchen); }
-.b-herzhaftes { --farbe: var(--herzhaftes); }
-.b-getraenke { --farbe: var(--getraenke); }
+/* Kategoriefarben */
+.f-rosa { --farbe: var(--rosa); }
+.f-lila { --farbe: var(--lila); }
+.f-gruen { --farbe: var(--gruen); }
+.f-petrol { --farbe: var(--petrol); }
+.f-orange { --farbe: var(--orange); }
+.f-blau { --farbe: var(--blau); }
+.f-senf { --farbe: var(--senf); }
+.f-grau { --farbe: var(--grau); }
 
 .leise { color: var(--leise); }
 
@@ -157,3 +172,4 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
   font-size: 0.85rem;
   padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom, 0px));
 }
+.fuss a { color: inherit; }

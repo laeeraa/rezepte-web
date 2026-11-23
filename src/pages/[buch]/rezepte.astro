@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import RezeptListe from '../../components/RezeptListe.astro';
+import { ladeBuch, ladeRezepte } from '../../lib/db';
+
+const kontext = await ladeBuch(Astro.params.buch!);
+if (!kontext) return new Response(null, { status: 404 });
+const rezepte = await ladeRezepte(kontext);
+---
+
+<Layout titel="Alle Rezepte" kontext={kontext}>
+  <h1>Alle Rezepte</h1>
+  <RezeptListe kontext={kontext} rezepte={rezepte} gliederung="kategorie" />
+</Layout>

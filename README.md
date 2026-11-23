@@ -1,51 +1,90 @@
-# Lara's Lieblingsrezepte
+# Lieblingsrezepte
 
-Statische Webseite für die Rezeptsammlung aus dem Obsidian-Vault, gebaut mit [Astro](https://astro.build).
-Die Rezepte selbst liegen **nicht** hier, sondern im Vault. Die Seite liest sie beim Bauen ein.
+Rezeptbücher für Freunde, gebaut mit [Astro](https://astro.build) als Cloudflare Worker.
+Jedes Buch hat eigene Kategorien und Tags. Alle Rezepte liegen in einer Cloudflare-D1-Datenbank,
+jede Seite wird pro Anfrage aus ihr gerendert.
 
-## Starten
+Adressen: `/` (alle Bücher), `/lara`, `/lara/suesses`, `/lara/rezepte`, `/lara/rezept/pad-thai`, `/lara/wissen/…`.
+Alte Adressen ohne Buch (`/rezept/pad-thai`, `/suesses`, …) leiten auf `/lara/…` weiter (`src/middleware.ts`).
+
+## Lokal starten
+
+Node 22 (über [fnm](https://github.com/Schniz/fnm)), dann:
 
 ```sh
-npm install      # einmalig
-npm run dev      # Entwicklungsserver auf http://localhost:4321
-npm run build    # fertige Seite nach dist/
-npm run preview  # dist/ lokal ansehen
-npm run preview:worker  # wie online, mit Anmeldeseite, auf http://localhost:8787
+npm install                                         # einmalig
+npm run db:migrate:lokal                            # Schema in die lokale D1 (.wrangler/)
+BESITZER_EMAIL=du@example.org npm run import:vault  # Vault → .import/lara.sql
+npm run db:import:lokal                             # SQL einspielen (ersetzt das Buch)
+
+npm run dev      # Entwicklungsserver auf http://localhost:4321, ohne Passwort
+npm run build    # Worker nach dist/
+npm run preview  # gebauten Worker lokal ansehen, mit Anmeldeseite
+npm run check    # Typen prüfen
 ```
 
-Der Vault wird standardmäßig unter `../Rezepte` erwartet (`C:\Users\lar\Projekte\Rezepte`).
-Ein anderer Pfad geht über die Umgebungsvariable `VAULT_DIR`.
-
-Astro speichert gerenderte Rezepte in `node_modules/.astro`. Nach Änderungen am Remark-Plugin
-diesen Ordner löschen, sonst zeigt der Build noch das alte Ergebnis.
-
-## Veröffentlichen
-
-Jeder Push hierher oder in den Vault baut die Seite per GitHub Action (`.github/workflows/deploy.yml`)
-und veröffentlicht sie als Cloudflare Worker (`wrangler.jsonc`).
-
-Die Seite ist mit einem gemeinsamen Passwort geschützt (`worker/index.js`). Es liegt als Secret
-`PASSWORT` beim Worker in Cloudflare, nicht im Repo. `dev` und `preview` fragen kein Passwort ab.
-Für `preview:worker` braucht es eine Datei `.dev.vars` (nicht im Repo) mit einem Test-Passwort:
+`preview` braucht eine Datei `.dev.vars` (nicht im Repo) mit einem Test-Passwort:
 
 ```sh
 PASSWORT="test"
 ```
 
-## Was die Seite aus dem Vault macht
+In die lokale Datenbank schauen:
 
-- **Ordner** `Süßes`, `Brot & Brötchen`, `Herzhaftes`, `Getränke` werden zu Bereichen, `Wissen` zu Nachschlageseiten.
-- **Tags** werden beim Bauen gegen das Tagsystem aus `Struktur.md` geprüft (`src/lib/tags.ts`).
-  Ein unbekannter Tag oder ein falscher `art/`-Tag bricht den Build mit einer Meldung ab.
-- **Rezepte mit `todo`** werden nicht veröffentlicht.
-- **Bilder:** Veröffentlicht wird nur das Bild aus dem Feld `bild`. Im Text eingebettete Bilder
-  (`![[…]]`, z. B. Fotos von Buchseiten) werden entfernt.
-- **Wikilinks** `[[Rezept]]` und `[[Rezept#Abschnitt]]` werden zu normalen Links.
+```sh
+npx wrangler d1 execute rezepte --local --command "SELECT titel FROM rezept LIMIT 5"
+```
+
+## Veröffentlichen
+
+Jeder Push auf `main` baut die Seite per GitHub Action (`.github/workflows/deploy.yml`), spielt neue
+Migrationen in die echte Datenbank ein und veröffentlicht den Worker (`wrangler.jsonc`).
+
+Die Seite ist mit einem gemeinsamen Passwort geschützt (`src/lib/anmeldung.js`, eingebunden in
+`src/middleware.ts`). Es liegt als Secret `PASSWORT` beim Worker in Cloudflare, nicht im Repo.
+
+### Einmalig: Umstellung vom Vault auf die Datenbank
+
+1. Datenbank anlegen: `npx wrangler d1 create rezepte` und die ausgegebene `database_id` in `wrangler.jsonc` eintragen.
+2. Der API-Token im GitHub-Secret `CLOUDFLARE_API_TOKEN` braucht zusätzlich das Recht **D1: Edit**.
+3. Schema und Rezepte einspielen:
+   ```sh
+   npx wrangler d1 migrations apply rezepte --remote
+   BESITZER_EMAIL=<deine Login-Adresse> npm run import:vault
+   npx wrangler d1 execute rezepte --remote --file .import/lara.sql
+   ```
+4. Auf `main` mergen. Der Workflow im Vault (`website.yml`) wird danach nicht mehr gebraucht.
+
+## Datenbank
+
+Das Schema steht in `migrations/` (eine Datei je Änderung, nie eine eingespielte Datei ändern).
+
+| Tabelle | Inhalt |
+|---|---|
+| `buch`, `nutzer`, `mitglied` | Rezeptbücher, Personen und wer in welchem Buch schreiben darf |
+| `kategorie` | Ersetzt die Ordner: Name, Farbe aus der Palette, Vollkorn-Tausch an/aus |
+| `tag_gruppe`, `tag`, `tag_kategorie` | Tagsystem je Buch: Pflicht, Einzel- oder Mehrfachauswahl, Filterlogik, Anzeige |
+| `rezept`, `rezept_tag` | Rezepte mit Markdown (`inhalt_md`) und daraus erzeugtem HTML (`inhalt_html`) |
+| `seite` | Wissensseiten zum Nachschlagen |
+
+Ein Tag heißt `<gruppe>/<tag>`, z. B. `ernaehrung/vegan` oder `merkmal/sauerteig`.
+Neue Bücher starten mit `src/lib/startkonfiguration.mjs`.
+
+## Was beim Speichern eines Rezepts passiert
+
+Rezepte werden im Formular unter `/<buch>/neu` und `/<buch>/rezept/<slug>/bearbeiten` geschrieben.
+Das HTML wird beim Speichern erzeugt, nicht bei jedem Aufruf (`src/lib/rezepttext.mjs`):
+
+- **Wikilinks** `[[Rezept]]` und `[[Rezept#Abschnitt]]` werden zu Links innerhalb des Buchs.
+- **Bilder im Text** (`![[…]]`, Markdown-Bilder) werden nicht angezeigt.
+- **Rohes HTML** im Text wird nicht übernommen, Links nur mit `http(s)`, `mailto`, relativ oder als Anker.
+- **Verweise:** Ändern sich Titel oder Entwurf-Status, werden Rezepte neu gerendert, die per `[[…]]` darauf zeigen.
+- **Entwürfe** sind nur über ihre Adresse und unter `/<buch>/entwuerfe` zu finden, nicht in Listen und Suche.
 - **Mengen umrechnen:** Unter `## Zutaten` (Listen und Tabellen) werden Zahlen markiert, auf die eine Einheit
   oder Zutat folgt (`500 g`, `1–2 EL`, `Saft von 1/2 Zitrone`). Mehltypen (`Weizenmehl 550`, `Type 630`),
   `°C`, `%`, `cm` und `Ø` bleiben stehen. Auf der Rezeptseite rechnet man sie bei „Menge“ mit − und + um:
   bei einer Stückzahl im Feld `portionen` in Stück-Schritten, sonst in Faktoren. Die Zubereitung wird nicht umgerechnet.
-- **Vollkorn tauschen** (nur Brot & Brötchen): Neben Weizen-, Roggen- und Dinkelmehl steht ein Knopf „Vollkorn“.
+- **Vollkorn tauschen** (in Kategorien mit `vollkorn_tausch`): Neben Weizen-, Roggen- und Dinkelmehl steht ein Knopf „Vollkorn“.
   Pro getauschtem Mehl kommen 7,5 % seiner Menge als Wasser dazu, in derselben `###`-Gruppe (z. B. Vorteig),
   sonst zum ersten Wasser im Teig, ohne Wasser zur Milch. Der Sauerteig sinkt anteilig, bei ganz Vollkorn auf die Hälfte
   (Regel aus „Koch- & Brühstücke“). Gruppen wie `### Kochstück` oder `### Brühstück` bleiben unverändert.
@@ -55,18 +94,17 @@ PASSWORT="test"
 
 | Datei | Aufgabe |
 |---|---|
-| `src/vault.mjs` | Vault-Pfad, Bereiche, Slugs, Wikilink-Ziele |
-| `src/content.config.ts` | Liest Rezepte und Wissen, prüft das Frontmatter |
-| `src/lib/tags.ts` | Tagsystem und Anzeigenamen |
-| `src/lib/rezepte.ts` | Rezepte laden, `art/` je Ordner prüfen, Suchtext |
-| `src/remark-obsidian.mjs` | Obsidian-Syntax (Einbettungen, Wikilinks), Mengen markieren |
+| `src/lib/db.ts` | Lesezugriffe auf D1: Bücher, Tagsystem, Rezepte, Wissen |
+| `src/lib/rezept-speichern.ts` | Rezepte anlegen, ändern, löschen; prüft die Eingabe, hält Wikilinks anderer Rezepte aktuell |
+| `src/components/RezeptFormular.astro` | Formular mit Tags je Kategorie und Vorschau |
+| `src/lib/anzeige.ts` | Seitenname, Zeit- und Linkformat |
+| `src/lib/tagregeln.mjs` | Prüft die Tags eines Rezepts gegen das Tagsystem seines Buchs |
+| `src/lib/rezepttext.mjs` | Markdown → HTML mit `src/remark-obsidian.mjs` |
 | `src/lib/mengen.mjs` | Mengenangaben erkennen |
 | `src/lib/vollkorn.mjs` | Mehl, Wasser und Sauerteig erkennen, Werte für den Vollkorn-Tausch |
+| `src/lib/suchtext.mjs` | Suchtext aus Titel, Tags und Zutaten |
+| `src/middleware.ts` | Passwort, Weiterleitung alter Adressen |
 | `src/components/RezeptListe.astro` | Liste mit Suche und kombinierbaren Filtern |
-| `src/pages/` | Start, Bereiche, alle Rezepte, Rezeptseite, Wissen |
-| `worker/index.js` | Anmeldeseite vor der veröffentlichten Seite |
-
-## Neuer Tag
-
-1. In `Struktur.md` im Vault eintragen.
-2. In `src/lib/tags.ts` ergänzen (bei `entdeckt/` optional nur den Anzeigenamen).
+| `src/pages/` | Alle Bücher, und je Buch: Start, Kategorien, alle Rezepte, Rezeptseite, Wissen, `neu`, `…/bearbeiten`, `entwuerfe` |
+| `src/env.d.ts` | Typen für `env` aus `cloudflare:workers` |
+| `scripts/import-vault.mjs` | Liest den Obsidian-Vault einmalig ein und erzeugt SQL für ein Buch |

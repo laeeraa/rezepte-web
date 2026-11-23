@@ -1,0 +1,31 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { ladeBuch, ladeEntwuerfe } from '../../lib/db';
+
+const kontext = await ladeBuch(Astro.params.buch!);
+if (!kontext) return new Response(null, { status: 404 });
+const basis = `/${kontext.buch.slug}`;
+const entwuerfe = await ladeEntwuerfe(kontext);
+const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<Layout titel="Entwürfe" schmal kontext={kontext}>
+  <h1>Entwürfe</h1>
+  <p class="leise">Noch nicht fertige Rezepte. Sie erscheinen nicht in Listen und Suche.</p>
+  {entwuerfe.length === 0 && <p>Keine Entwürfe.</p>}
+  <ul class="liste">
+    {entwuerfe.map((e) => (
+      <li>
+        <a href={`${basis}/rezept/${e.slug}/bearbeiten`}>{e.titel}</a>
+        <span class="leise">zuletzt geändert am {datum(e.geaendert)}</span>
+      </li>
+    ))}
+  </ul>
+</Layout>
+
+<style>
+  .liste { list-style: none; padding: 0; display: grid; gap: 0.6rem; }
+  .liste li { display: flex; flex-direction: column; padding: 0.8rem 1rem; background: var(--karte); border-radius: var(--radius); box-shadow: var(--schatten); }
+  .liste a { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: var(--text); text-decoration: none; }
+  .liste .leise { font-size: 0.85rem; }
+</style>

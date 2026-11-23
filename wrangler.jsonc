@@ -1,17 +1,25 @@
-// Cloudflare Worker, der die fertige Seite aus dist/ ausliefert.
-// Vor jede Anfrage schaltet worker/index.js die Anmeldeseite (Secret PASSWORT).
+// Cloudflare Worker mit der Astro-Seite. Jede Anfrage wird im Worker gerendert und liest aus D1.
+// Den Einstieg baut @astrojs/cloudflare. Die Passwortabfrage steht in src/middleware.ts (Secret PASSWORT).
 // Erreichbar unter https://lieblingsrezepte.<account>.workers.dev
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "lieblingsrezepte",
-  "main": "worker/index.js",
+  "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-09-28",
   "assets": {
-    "directory": "./dist",
     "binding": "ASSETS",
-    // Sonst würden vorhandene Dateien ohne Passwort ausgeliefert.
-    "run_worker_first": true
-  }
+    "directory": "./dist/client"
+  },
+  // Datenbank mit allen Rezeptbüchern. Lokal (--local) liegt sie in .wrangler/.
+  // Vor dem ersten Deploy mit `npx wrangler d1 create rezepte` anlegen und die ID hier eintragen.
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rezepte",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ]
   // Eigene Domain später (Domain muss bei Cloudflare verwaltet werden):
   // "routes": [{ "pattern": "rezepte.example.de", "custom_domain": true }]
 }

@@ -41,7 +41,10 @@ export function mengenTeile(text, { ende = false } = {}) {
   return teile;
 }
 
-/** HTML-Attribute für eine Menge, ausgewertet vom Skript auf der Rezeptseite. */
+/**
+ * HTML-Attribute für eine Menge, ausgewertet vom Skript auf der Rezeptseite.
+ * @param {{ wert?: number, bis?: number, metrisch?: boolean }} teil
+ */
 export const mengenAttribute = ({ wert, bis, metrisch }) => ({
   'data-wert': wert,
   'data-bis': bis,

@@ -1,0 +1,111 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { ladeBuch, ladeEntwuerfe, ladeRezepte } from '../../lib/db';
+import { abschnittId } from '../../lib/anzeige';
+
+const kontext = await ladeBuch(Astro.params.buch!);
+if (!kontext) return new Response(null, { status: 404 });
+
+const basis = `/${kontext.buch.slug}`;
+const [rezepte, entwuerfe] = await Promise.all([ladeRezepte(kontext), ladeEntwuerfe(kontext)]);
+const gliederungsTags = kontext.gruppen.filter((g) => g.darstellung === 'gliederung').flatMap((g) => g.tags);
+const kategorien = kontext.kategorien.map((k) => {
+  const eigene = rezepte.filter((r) => r.kategorie.id === k.id);
+  const arten = gliederungsTags
+    .filter((t) => eigene.some((r) => r.tags.includes(t)))
+    .map((t) => ({ text: t.name, href: `${basis}/${k.slug}#${abschnittId(t)}` }));
+  return { ...k, anzahl: eigene.length, arten };
+});
+const schnellzugriff = kontext.buch.schnellzugriff.map((s) => ({ text: s.text, href: `${basis}/${s.ziel}` }));
+---
+
+<Layout kontext={kontext}>
+  <h1 class="unsichtbar">{kontext.buch.name}</h1>
+
+  <form class="suche" action={`${basis}/rezepte`} method="get">
+    <input type="search" name="q" placeholder="Rezept oder Zutat suchen …" aria-label="Rezepte durchsuchen" />
+  </form>
+
+  <ul class="chips schnell">
+    {schnellzugriff.map((s) => <li><a class="chip" href={s.href}>{s.text}</a></li>)}
+    {entwuerfe.length > 0 && (
+      <li><a class="chip" href={`${basis}/entwuerfe`}>{entwuerfe.length} {entwuerfe.length === 1 ? 'Entwurf' : 'Entwürfe'}</a></li>
+    )}
+  </ul>
+
+  <ul class="bereiche">
+    {kategorien.map((k) => (
+      <li class={`kachel f-${k.farbe}`}>
+        <a class="name" href={`${basis}/${k.slug}`}>{k.name}</a>
+        <span class="anzahl">{k.anzahl} {k.anzahl === 1 ? 'Rezept' : 'Rezepte'}</span>
+        {k.arten.length > 0 && (
+          <ul class="arten">
+            {k.arten.map((a) => <li><a href={a.href}>{a.text}</a></li>)}
+          </ul>
+        )}
+      </li>
+    ))}
+    <li class="kachel wissen">
+      <a class="name" href={`${basis}/wissen`}>Wissen</a>
+      <span class="beschreibung">Alles zum Nachschlagen, das kein Rezept ist</span>
+    </li>
+  </ul>
+</Layout>
+
+<style>
+  .suche input {
+    width: 100%;
+    font: inherit;
+    font-size: 1.1rem;
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--linie);
+    border-radius: var(--radius);
+    background: var(--karte);
+    color: var(--text);
+  }
+  .suche input:focus { outline: 2px solid var(--akzent); outline-offset: 1px; }
+  .schnell { margin: 0.9rem 0 2rem; }
+
+  .bereiche {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 1rem;
+  }
+  .kachel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 1.25rem 1.25rem 1.1rem;
+    background: var(--karte);
+    border-radius: var(--radius);
+    border-top: 5px solid var(--farbe, var(--leise));
+    box-shadow: var(--schatten);
+  }
+  /* Die ganze Kachel ist klickbar, die Arten darin bleiben eigene Links. */
+  .name {
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .name::after { content: ''; position: absolute; inset: 0; border-radius: var(--radius); }
+  .kachel:hover .name { color: var(--farbe, var(--akzent)); }
+  .anzahl { color: var(--farbe); font-weight: 600; font-size: 0.9rem; }
+  .beschreibung { color: var(--leise); font-size: 0.9rem; }
+  .arten { list-style: none; margin: 0.2rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.3rem 0.9rem; }
+  .arten a {
+    position: relative;
+    z-index: 1;
+    color: var(--leise);
+    font-size: 0.9rem;
+    text-decoration: underline;
+    text-decoration-color: var(--linie);
+    text-underline-offset: 3px;
+  }
+  .arten a:hover { color: var(--farbe); text-decoration-color: currentColor; }
+</style>

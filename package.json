@@ -7,16 +7,27 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "preview:worker": "astro build && wrangler dev",
-    "check": "astro check"
+    "check": "astro check",
+    "db:migrate:lokal": "wrangler d1 migrations apply rezepte --local",
+    "import:vault": "node scripts/import-vault.mjs",
+    "db:import:lokal": "wrangler d1 execute rezepte --local --file .import/lara.sql"
   },
   "dependencies": {
-    "@astrojs/markdown-remark": "^7.3.1",
-    "astro": "^7.3.5",
+    "@astrojs/cloudflare": "^14.4.9",
+    "astro": "^7.4.13",
     "github-slugger": "^2.0.0",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "remark-smartypants": "^3.0.3",
+    "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
-    "wrangler": "^4.142.0"
+    "@astrojs/check": "^0.9.12",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.142.0",
+    "yaml": "^2.8.1"
   }
 }

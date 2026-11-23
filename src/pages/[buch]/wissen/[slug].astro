@@ -1,0 +1,20 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { ladeBuch, ladeSeite } from '../../../lib/db';
+
+const kontext = await ladeBuch(Astro.params.buch!);
+const seite = kontext && (await ladeSeite(kontext, Astro.params.slug!));
+if (!kontext || !seite) return new Response(null, { status: 404 });
+---
+
+<Layout titel={seite.titel} schmal kontext={kontext}>
+  <nav class="pfad"><a href={`/${kontext.buch.slug}/wissen`}>Wissen</a></nav>
+  <h1>{seite.titel}</h1>
+  <article class="rezepttext">
+    <Fragment set:html={seite.inhaltHtml} />
+  </article>
+</Layout>
+
+<style>
+  .pfad a { font-size: 0.9rem; font-weight: 600; text-decoration: none; }
+</style>

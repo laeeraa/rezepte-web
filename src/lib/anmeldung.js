@@ -1,40 +1,45 @@
-// Schützt die ganze Seite mit einem gemeinsamen Passwort (Secret PASSWORT).
+// Schützt die ganze Seite mit einem gemeinsamen Passwort (Secret PASSWORT), eingebunden in src/middleware.ts.
+// Wird ersetzt, sobald der Login über Cloudflare Access läuft.
 // Wer nicht angemeldet ist, bekommt eine Anmeldeseite mit Tipp. Nach richtiger Eingabe
 // merkt sich ein Cookie die Anmeldung. Groß-/Kleinschreibung und Leerzeichen am Rand zählen nicht.
 const COOKIE = 'anmeldung';
 const GUELTIG_SEKUNDEN = 180 * 24 * 60 * 60;
 const TIPP = "Wie heißt Lara's Sauerteig?";
 
-export default {
-  async fetch(request, env) {
-    if (!env.PASSWORT) {
-      return new Response('Das Passwort ist nicht eingerichtet.', { status: 500 });
-    }
-    const schluessel = await hash(`lieblingsrezepte:${normalisiere(env.PASSWORT)}`);
+/**
+ * Gibt null zurück, wenn die Anfrage angemeldet ist. Sonst die Antwort, die stattdessen
+ * gesendet wird: Anmeldeseite, Weiterleitung nach richtiger Eingabe oder Fehler.
+ * @param {Request} request
+ * @param {string | undefined} passwort
+ * @returns {Promise<Response | null>}
+ */
+export async function anmeldung(request, passwort) {
+  if (!passwort) {
+    return new Response('Das Passwort ist nicht eingerichtet.', { status: 500 });
+  }
+  const schluessel = await hash(`lieblingsrezepte:${normalisiere(passwort)}`);
 
-    if (gleich(leseCookie(request, COOKIE), schluessel)) {
-      return env.ASSETS.fetch(request);
-    }
+  if (gleich(leseCookie(request, COOKIE), schluessel)) return null;
 
-    if (request.method === 'POST') {
-      const formular = await request.formData().catch(() => null);
-      const eingabe = normalisiere(String(formular?.get('passwort') ?? ''));
-      if (gleich(await hash(eingabe), await hash(normalisiere(env.PASSWORT)))) {
-        // Zurück auf dieselbe Adresse, jetzt mit Cookie.
-        return new Response(null, {
-          status: 303,
-          headers: {
-            Location: new URL(request.url).pathname + new URL(request.url).search,
-            'Set-Cookie': `${COOKIE}=${schluessel}; Path=/; Max-Age=${GUELTIG_SEKUNDEN}; HttpOnly; Secure; SameSite=Lax`,
-          },
-        });
-      }
-      return anmeldeseite(true);
+  if (request.method === 'POST') {
+    const formular = await request.formData().catch(() => null);
+    const eingabe = normalisiere(String(formular?.get('passwort') ?? ''));
+    if (gleich(await hash(eingabe), await hash(normalisiere(passwort)))) {
+      // Zurück auf dieselbe Adresse, jetzt mit Cookie.
+      const url = new URL(request.url);
+      return new Response(null, {
+        status: 303,
+        headers: {
+          Location: url.pathname + url.search,
+          'Set-Cookie': `${COOKIE}=${schluessel}; Path=/; Max-Age=${GUELTIG_SEKUNDEN}; HttpOnly; Secure; SameSite=Lax`,
+        },
+      });
     }
+    return anmeldeseite(true);
+  }
 
-    return anmeldeseite(false);
-  },
-};
+  return anmeldeseite(false);
+}
 
 function normalisiere(text) {
   return text.trim().toLowerCase();

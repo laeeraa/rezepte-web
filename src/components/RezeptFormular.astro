@@ -1,0 +1,257 @@
+---
+// Formular zum Anlegen und Bearbeiten eines Rezepts. Funktioniert ohne JavaScript (der Server prüft alles).
+// Mit JavaScript: Tags, die nicht zur gewählten Kategorie passen, werden ausgeblendet; Vorschau des Texts.
+import type { BuchKontext } from '../lib/db';
+import type { RezeptEingabe } from '../lib/rezept-speichern';
+
+interface Props {
+  kontext: BuchKontext;
+  werte: RezeptEingabe;
+  fehler: string[];
+  /** Adresse, zu der „Abbrechen“ führt. */
+  zurueck: string;
+  /** Beim Bearbeiten: Löschen anbieten. */
+  loeschbar?: boolean;
+}
+
+const { kontext, werte, fehler, zurueck, loeschbar = false } = Astro.props;
+const basis = `/${kontext.buch.slug}`;
+const gewaehlt = new Set(werte.tags);
+const gruppen = kontext.gruppen.filter((g) => g.tags.length > 0 || g.frei);
+const hinweis = (auswahl: string, pflicht: boolean) =>
+  auswahl === 'eins' ? (pflicht ? 'genau eins' : 'höchstens eins') : pflicht ? 'mindestens eins' : 'beliebig viele';
+---
+
+<form method="post" class="formular" data-formular data-vorschau-url={`${basis}/vorschau`}>
+  {fehler.length > 0 && (
+    <div class="fehlerbox" role="alert">
+      <p><strong>Noch nicht gespeichert:</strong></p>
+      <ul>{fehler.map((f) => <li>{f}</li>)}</ul>
+    </div>
+  )}
+
+  <label class="feld">
+    <span class="beschriftung">Titel</span>
+    <input name="titel" value={werte.titel} required autocomplete="off" />
+  </label>
+
+  <label class="feld">
+    <span class="beschriftung">Kategorie</span>
+    <select name="kategorie" required data-kategorie>
+      <option value="" selected={!werte.kategorie}>Bitte wählen …</option>
+      {kontext.kategorien.map((k) => <option value={k.slug} selected={k.slug === werte.kategorie}>{k.name}</option>)}
+    </select>
+  </label>
+
+  {gruppen.map((g) => (
+    <fieldset class="tags" data-gruppe>
+      <legend>
+        <span class="beschriftung">{g.name}</span>
+        <span class="leise">{hinweis(g.auswahl, g.pflicht)}</span>
+      </legend>
+      <div class="wahlen">
+        {g.auswahl === 'eins' && !g.pflicht && (
+          <label class="wahl"><input type="radio" name={`tag:${g.key}`} value="" checked={!g.tags.some((t) => gewaehlt.has(t.voll))} /><span>keine</span></label>
+        )}
+        {g.tags.map((t) => (
+          <label class="wahl" data-kategorien={t.kategorien.join(' ')}>
+            {g.auswahl === 'eins'
+              ? <input type="radio" name={`tag:${g.key}`} value={t.voll} checked={gewaehlt.has(t.voll)} />
+              : <input type="checkbox" name="tag" value={t.voll} checked={gewaehlt.has(t.voll)} />}
+            <span>{t.name}</span>
+          </label>
+        ))}
+      </div>
+      {g.frei && (
+        <input
+          class="neu"
+          name={`neu:${g.key}`}
+          value={werte.neueTags[g.key] ?? ''}
+          placeholder="Neu hinzufügen, mehrere mit Komma trennen"
+          aria-label={`${g.name}: neu hinzufügen`}
+          autocomplete="off"
+        />
+      )}
+    </fieldset>
+  ))}
+
+  <div class="zweispaltig">
+    <label class="feld">
+      <span class="beschriftung">Portionen <span class="leise">z. B. 4 Personen, 1 Kastenform, 12 Stück</span></span>
+      <input name="portionen" value={werte.portionen} autocomplete="off" />
+    </label>
+    <label class="feld">
+      <span class="beschriftung">Zeit <span class="leise">Minuten, gesamt</span></span>
+      <input name="zeit" value={werte.zeit} inputmode="numeric" pattern="[0-9]*" autocomplete="off" />
+    </label>
+  </div>
+
+  <label class="feld">
+    <span class="beschriftung">Quelle <span class="leise">Links, einer pro Zeile</span></span>
+    <textarea name="quelle" rows="2" autocomplete="off">{werte.quelle}</textarea>
+  </label>
+
+  <div class="feld">
+    <div class="text-kopf">
+      <label class="beschriftung" for="inhalt">Rezept</label>
+      <div class="umschalter" role="group" aria-label="Ansicht" data-umschalter hidden>
+        <button type="button" aria-pressed="true" data-ansicht="schreiben">Schreiben</button>
+        <button type="button" aria-pressed="false" data-ansicht="vorschau">Vorschau</button>
+      </div>
+    </div>
+    <textarea id="inhalt" name="inhalt" rows="22" spellcheck="true" data-inhalt>{werte.md}</textarea>
+    <article class="rezepttext vorschau" data-vorschau hidden></article>
+    <details class="hilfe">
+      <summary>Wie schreibe ich ein Rezept?</summary>
+      <ul>
+        <li>Drei Abschnitte: <code>## Zutaten</code>, <code>## Zubereitung</code>, <code>## Notizen</code>.</li>
+        <li>Untergruppen mit <code>### Teig</code>, <code>### Füllung</code> … unter Zutaten und Zubereitung gleich benannt.</li>
+        <li>Zutaten als Liste mit <code>- 250 g Mehl</code>. Mengen mit Einheit lassen sich auf der Rezeptseite umrechnen.</li>
+        <li>Schritte nummeriert: <code>1. Ofen vorheizen.</code></li>
+        <li>Auf ein anderes Rezept verweisen: <code>[[Weizenbrot]]</code> oder <code>[[Weizenbrot|anderer Text]]</code>.</li>
+        <li><strong>fett</strong> mit <code>**fett**</code>, Tabellen mit <code>| A | B |</code>.</li>
+      </ul>
+    </details>
+  </div>
+
+  <label class="entwurf">
+    <input type="checkbox" name="entwurf" value="ja" checked={werte.entwurf} />
+    <span>Entwurf: noch nicht fertig, erscheint nicht in Listen und Suche</span>
+  </label>
+
+  <div class="knoepfe">
+    <button type="submit" class="haupt">Speichern</button>
+    <a href={zurueck}>Abbrechen</a>
+  </div>
+</form>
+
+{loeschbar && (
+  <form method="post" class="loeschen" data-loeschen>
+    <input type="hidden" name="aktion" value="loeschen" />
+    <button type="submit">Rezept löschen</button>
+  </form>
+)}
+
+<style>
+  .formular { display: grid; gap: 1.1rem; }
+  .feld { display: grid; gap: 0.35rem; }
+  .beschriftung { font-weight: 600; }
+  .beschriftung .leise, legend .leise { font-weight: 400; font-size: 0.85rem; margin-left: 0.4rem; }
+  input:not([type='checkbox'], [type='radio']), select, textarea {
+    font: inherit;
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--linie);
+    border-radius: 8px;
+    background: var(--karte);
+    color: var(--text);
+  }
+  textarea { resize: vertical; }
+  #inhalt { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.95rem; line-height: 1.5; }
+  :is(input, select, textarea):focus-visible { outline: 2px solid var(--akzent); outline-offset: 1px; }
+
+  .tags { border: 1px solid var(--linie); border-radius: var(--radius); padding: 0.6rem 0.9rem 0.8rem; margin: 0; background: var(--karte); }
+  .tags legend { padding: 0 0.3rem; }
+  .wahlen { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .wahl { position: relative; cursor: pointer; }
+  .wahl input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .wahl span {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--linie);
+    background: var(--chip);
+    font-size: 0.9rem;
+  }
+  .wahl input:checked + span { background: var(--text); border-color: var(--text); color: var(--papier); }
+  .wahl input:focus-visible + span { outline: 2px solid var(--akzent); outline-offset: 2px; }
+  .wahl[hidden] { display: none; }
+  .neu { margin-top: 0.6rem; font-size: 0.9rem; }
+
+  .zweispaltig { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 34rem) { .zweispaltig { grid-template-columns: 1fr; } }
+
+  .text-kopf { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+  .umschalter { display: flex; border: 1px solid var(--linie); border-radius: 999px; overflow: hidden; }
+  .umschalter button { font: inherit; font-size: 0.85rem; padding: 0.3rem 0.8rem; border: 0; background: var(--karte); color: var(--text); cursor: pointer; }
+  .umschalter button[aria-pressed='true'] { background: var(--text); color: var(--papier); }
+  .vorschau { min-height: 20rem; padding: 0.5rem 1rem; border: 1px dashed var(--linie); border-radius: 8px; background: var(--karte); }
+  .hilfe { font-size: 0.9rem; color: var(--leise); }
+  .hilfe summary { cursor: pointer; }
+  .hilfe code { font-size: 0.85rem; background: var(--chip); padding: 0.05rem 0.3rem; border-radius: 4px; }
+
+  .entwurf { display: flex; gap: 0.5rem; align-items: baseline; }
+  .knoepfe { display: flex; gap: 1.25rem; align-items: center; }
+  .haupt {
+    font: inherit;
+    font-weight: 600;
+    padding: 0.65rem 1.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--akzent);
+    color: var(--papier);
+    cursor: pointer;
+  }
+  .fehlerbox { border: 1px solid var(--fehler); border-left-width: 4px; border-radius: 8px; padding: 0.5rem 1rem; background: var(--karte); }
+  .fehlerbox p { margin: 0.3rem 0; }
+  .fehlerbox ul { margin: 0.3rem 0 0.5rem; padding-left: 1.2rem; }
+
+  .loeschen { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--linie); }
+  .loeschen button { font: inherit; font-size: 0.9rem; border: 1px solid var(--fehler); color: var(--fehler); background: none; border-radius: 999px; padding: 0.4rem 1rem; cursor: pointer; }
+</style>
+
+<script>
+  const formular = document.querySelector<HTMLFormElement>('[data-formular]')!;
+  const kategorie = formular.querySelector<HTMLSelectElement>('[data-kategorie]')!;
+
+  // Tags, die nur zu anderen Kategorien passen, ausblenden und abwählen.
+  function tagsFiltern() {
+    for (const gruppe of formular.querySelectorAll<HTMLElement>('[data-gruppe]')) {
+      let sichtbar = 0;
+      for (const wahl of gruppe.querySelectorAll<HTMLElement>('[data-kategorien]')) {
+        const passend = !wahl.dataset.kategorien || !kategorie.value || wahl.dataset.kategorien.split(' ').includes(kategorie.value);
+        wahl.hidden = !passend;
+        if (!passend) wahl.querySelector('input')!.checked = false;
+        else sichtbar++;
+      }
+      gruppe.hidden = sichtbar === 0 && !gruppe.querySelector('.neu');
+    }
+  }
+  kategorie.addEventListener('change', tagsFiltern);
+  tagsFiltern();
+
+  // Vorschau: der Server rendert den Text genauso wie beim Speichern.
+  const inhalt = formular.querySelector<HTMLTextAreaElement>('[data-inhalt]')!;
+  const vorschau = formular.querySelector<HTMLElement>('[data-vorschau]')!;
+  const umschalter = formular.querySelector<HTMLElement>('[data-umschalter]')!;
+  umschalter.hidden = false;
+  umschalter.addEventListener('click', async (e) => {
+    const knopf = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-ansicht]');
+    if (!knopf) return;
+    const zeigen = knopf.dataset.ansicht === 'vorschau';
+    for (const b of umschalter.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b === knopf));
+    inhalt.hidden = zeigen;
+    vorschau.hidden = !zeigen;
+    if (!zeigen) return;
+    vorschau.textContent = 'Vorschau wird geladen …';
+    try {
+      const antwort = await fetch(formular.dataset.vorschauUrl!, { method: 'POST', body: inhalt.value, headers: { 'Content-Type': 'text/plain' } });
+      if (!antwort.ok) throw new Error(String(antwort.status));
+      vorschau.innerHTML = await antwort.text();
+    } catch {
+      vorschau.textContent = 'Die Vorschau konnte nicht geladen werden.';
+    }
+  });
+
+  // Ungespeicherte Änderungen nicht aus Versehen verlieren.
+  let geaendert = false;
+  formular.addEventListener('input', () => (geaendert = true));
+  formular.addEventListener('submit', () => (geaendert = false));
+  window.addEventListener('beforeunload', (e) => {
+    if (geaendert) e.preventDefault();
+  });
+
+  document.querySelector<HTMLFormElement>('[data-loeschen]')?.addEventListener('submit', (e) => {
+    if (!confirm('Dieses Rezept wirklich löschen? Das lässt sich nicht rückgängig machen.')) e.preventDefault();
+  });
+</script>

@@ -1,17 +1,18 @@
 ---
-import { getCollection } from 'astro:content';
-import Layout from '../../layouts/Layout.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { ladeBuch, ladeSeiten } from '../../../lib/db';
 
-const seiten = (await getCollection('wissen'))
-  .map((s) => ({ id: s.id, titel: (s.filePath ?? '').split('/').pop()!.replace(/\.md$/, '') }))
-  .sort((a, b) => a.titel.localeCompare(b.titel, 'de'));
+const kontext = await ladeBuch(Astro.params.buch!);
+if (!kontext) return new Response(null, { status: 404 });
+const seiten = await ladeSeiten(kontext);
 ---
 
-<Layout titel="Wissen" schmal>
+<Layout titel="Wissen" schmal kontext={kontext}>
   <h1>Wissen</h1>
   <p class="leise">Zum Nachschlagen: alles, was kein Rezept ist.</p>
+  {seiten.length === 0 && <p>Hier gibt es noch nichts.</p>}
   <ul class="seiten">
-    {seiten.map((s) => <li><a href={`/wissen/${s.id}`}>{s.titel}</a></li>)}
+    {seiten.map((s) => <li><a href={`/${kontext.buch.slug}/wissen/${s.slug}`}>{s.titel}</a></li>)}
   </ul>
 </Layout>
 
