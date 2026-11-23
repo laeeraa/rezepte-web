@@ -1,6 +1,7 @@
 ---
 import type { BuchKontext, RezeptKurz, Tag } from '../lib/db';
 import { abschnittId, mitDarstellung } from '../lib/anzeige';
+import { bildUrl } from '../lib/bilder';
 
 interface Props {
   kontext: BuchKontext;
@@ -109,6 +110,7 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
         {a.rezepte.map((r) => (
           <li class:list={['karte', `f-${r.kategorie.farbe}`]} data-id={r.id} data-tags={r.tags.map((t) => t.voll).join(' ')} data-text={r.suchtext}>
             <a href={`${basis}/rezept/${r.slug}`}>
+              {r.bildKey && <img class="karte-bild" src={bildUrl(r.bildKey, true)} alt="" loading="lazy" decoding="async" />}
               {gliederung === 'kategorie' && art(r) && <span class="karte-art">{art(r)}</span>}
               <span class="karte-titel">{r.titel}</span>
               <span class="karte-unter">{unterzeile(r)}</span>
@@ -250,6 +252,7 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
     text-decoration: none;
   }
   .karte a:hover .karte-titel { color: var(--farbe); }
+  .karte-bild { width: calc(100% + 2rem); max-width: none; margin: -0.85rem -1rem 0.5rem; aspect-ratio: 3 / 2; object-fit: cover; border-radius: var(--radius) var(--radius) 0 0; }
   .karte-art { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--farbe); font-weight: 600; }
   .karte-titel { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.25; }
   .karte-unter { font-size: 0.85rem; color: var(--leise); }

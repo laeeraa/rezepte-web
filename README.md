@@ -45,15 +45,16 @@ Die Seite ist mit einem gemeinsamen Passwort geschützt (`src/lib/anmeldung.js`,
 
 ### Einmalig: Umstellung vom Vault auf die Datenbank
 
-1. Datenbank anlegen: `npx wrangler d1 create rezepte` und die ausgegebene `database_id` in `wrangler.jsonc` eintragen.
-2. Der API-Token im GitHub-Secret `CLOUDFLARE_API_TOKEN` braucht zusätzlich das Recht **D1: Edit**.
-3. Schema und Rezepte einspielen:
+1. Datenbank anlegen: `npx wrangler d1 create rezepte --location weur` und die ausgegebene `database_id` in `wrangler.jsonc` eintragen.
+2. R2 im Cloudflare-Dashboard aktivieren und den Speicher für Fotos anlegen: `npx wrangler r2 bucket create rezepte-bilder`.
+3. Der API-Token im GitHub-Secret `CLOUDFLARE_API_TOKEN` braucht zusätzlich **D1: Edit** und **Workers R2 Storage: Edit**.
+4. Schema und Rezepte einspielen:
    ```sh
    npx wrangler d1 migrations apply rezepte --remote
    BESITZER_EMAIL=<deine Login-Adresse> npm run import:vault
    npx wrangler d1 execute rezepte --remote --file .import/lara.sql
    ```
-4. Auf `main` mergen. Der Workflow im Vault (`website.yml`) wird danach nicht mehr gebraucht.
+5. Auf `main` mergen. Der Workflow im Vault (`website.yml`) wird danach nicht mehr gebraucht.
 
 ## Datenbank
 
@@ -79,6 +80,8 @@ Das HTML wird beim Speichern erzeugt, nicht bei jedem Aufruf (`src/lib/rezepttex
 - **Bilder im Text** (`![[…]]`, Markdown-Bilder) werden nicht angezeigt.
 - **Rohes HTML** im Text wird nicht übernommen, Links nur mit `http(s)`, `mailto`, relativ oder als Anker.
 - **Verweise:** Ändern sich Titel oder Entwurf-Status, werden Rezepte neu gerendert, die per `[[…]]` darauf zeigen.
+- **Fotos** werden im Browser auf 1600 px und 600 px (Karten) verkleinert, ohne EXIF-Daten wie den Aufnahmeort.
+  Ohne JavaScript geht das Original hoch (höchstens 8 MB, nur JPEG, PNG, WebP).
 - **Entwürfe** sind nur über ihre Adresse und unter `/<buch>/entwuerfe` zu finden, nicht in Listen und Suche.
 - **Mengen umrechnen:** Unter `## Zutaten` (Listen und Tabellen) werden Zahlen markiert, auf die eine Einheit
   oder Zutat folgt (`500 g`, `1–2 EL`, `Saft von 1/2 Zitrone`). Mehltypen (`Weizenmehl 550`, `Type 630`),
@@ -95,6 +98,7 @@ Das HTML wird beim Speichern erzeugt, nicht bei jedem Aufruf (`src/lib/rezepttex
 | Datei | Aufgabe |
 |---|---|
 | `src/lib/db.ts` | Lesezugriffe auf D1: Bücher, Tagsystem, Rezepte, Wissen |
+| `src/lib/bilder.ts` | Fotos in R2 (`BILDER`): prüfen, ablegen, löschen; ausgeliefert über `src/pages/bild/` |
 | `src/lib/rezept-speichern.ts` | Rezepte anlegen, ändern, löschen; prüft die Eingabe, hält Wikilinks anderer Rezepte aktuell |
 | `src/components/RezeptFormular.astro` | Formular mit Tags je Kategorie und Vorschau |
 | `src/lib/anzeige.ts` | Seitenname, Zeit- und Linkformat |

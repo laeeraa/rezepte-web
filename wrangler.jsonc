@@ -19,6 +19,13 @@
       "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
+  ],
+  // Fotos der Rezepte. Vor dem ersten Deploy mit `npx wrangler r2 bucket create rezepte-bilder` anlegen.
+  "r2_buckets": [
+    {
+      "binding": "BILDER",
+      "bucket_name": "rezepte-bilder"
+    }
   ]
   // Eigene Domain später (Domain muss bei Cloudflare verwaltet werden):
   // "routes": [{ "pattern": "rezepte.example.de", "custom_domain": true }]

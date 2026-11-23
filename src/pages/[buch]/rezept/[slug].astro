@@ -3,6 +3,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { ladeBuch, ladeRezept } from '../../../lib/db';
 import { abschnittId, formatZeit, host, mitDarstellung } from '../../../lib/anzeige';
 import { mengenTeile, mengenAttribute } from '../../../lib/mengen.mjs';
+import { bildUrl } from '../../../lib/bilder';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 const rezept = kontext && (await ladeRezept(kontext, Astro.params.slug!));
@@ -38,6 +39,8 @@ const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true 
   )}
 
   <h1>{rezept.titel}</h1>
+
+  {rezept.bildKey && <img class="bild" src={bildUrl(rezept.bildKey)} alt={rezept.titel} />}
 
   <ul class="chips merkmale">
     {merkmale.map((t) => <li><a class="chip" href={filterLink(t.voll)}>{t.name}</a></li>)}
@@ -88,6 +91,7 @@ const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true 
 </Layout>
 
 <style>
+  .bild { display: block; width: 100%; max-height: 32rem; object-fit: cover; border-radius: var(--radius); margin-bottom: 1rem; }
   .oben { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
   .bearbeiten { font-size: 0.9rem; color: var(--leise); }
   .bearbeiten:hover { color: var(--farbe); }

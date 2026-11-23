@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import RezeptFormular from '../../components/RezeptFormular.astro';
+import { bildAusFormular } from '../../lib/bilder';
 import { ladeBuch } from '../../lib/db';
 import { eingabeAusFormular, leereEingabe, speichereRezept } from '../../lib/rezept-speichern';
 
@@ -14,8 +15,9 @@ werte.kategorie = Astro.url.searchParams.get('kategorie') ?? '';
 let fehler: string[] = [];
 
 if (Astro.request.method === 'POST') {
-  werte = eingabeAusFormular(await Astro.request.formData());
-  const ergebnis = await speichereRezept(kontext, werte);
+  const formular = await Astro.request.formData();
+  werte = eingabeAusFormular(formular);
+  const ergebnis = await speichereRezept(kontext, werte, undefined, bildAusFormular(formular));
   if (ergebnis.ok) return Astro.redirect(`${basis}/rezept/${ergebnis.slug}`, 303);
   fehler = ergebnis.fehler;
   Astro.response.status = 422;

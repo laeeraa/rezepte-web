@@ -7,6 +7,7 @@ import { pruefeTags } from './tagregeln.mjs';
 import { rezepttextRenderer } from './rezepttext.mjs';
 import { suchtext } from './suchtext.mjs';
 import { slugify } from './slug.mjs';
+import { loescheBild, neuerBildKey, pruefeBild, speichereBild, type BildEingabe } from './bilder';
 
 /** Was im Formular steht, als Text, damit es bei Fehlern unverändert wieder angezeigt werden kann. */
 export interface RezeptEingabe {
@@ -77,7 +78,12 @@ type Anweisung = ReturnType<typeof env.DB.prepare>;
 const db = () => env.DB;
 
 /** Neues Rezept (ohne `bisher`) oder Änderung eines vorhandenen. */
-export async function speichereRezept(k: BuchKontext, e: RezeptEingabe, bisher?: RezeptRoh): Promise<Ergebnis> {
+export async function speichereRezept(
+  k: BuchKontext,
+  e: RezeptEingabe,
+  bisher?: RezeptRoh,
+  bild: BildEingabe = { entfernen: false },
+): Promise<Ergebnis> {
   const fehler: string[] = [];
   const slug = slugify(e.titel);
   if (!e.titel) fehler.push('Der Titel fehlt.');
@@ -93,6 +99,7 @@ export async function speichereRezept(k: BuchKontext, e: RezeptEingabe, bisher?:
   for (const q of quelle) if (!/^https?:\/\/\S+$/.test(q)) fehler.push(`Die Quelle „${q}“ ist kein Link. Namen von Personen oder Büchern gehören zu „Entdeckt bei/in“.`);
 
   if (!e.md.trim()) fehler.push('Der Rezepttext fehlt.');
+  fehler.push(...(await pruefeBild(bild)));
 
   // Neue Tags in freien Gruppen (z. B. Entdeckt bei/in). Gibt es den Tag schon, wird er einfach gewählt.
   const tags = new Set(e.tags);
@@ -120,7 +127,10 @@ export async function speichereRezept(k: BuchKontext, e: RezeptEingabe, bisher?:
     if (gleicherSlug && gleicherSlug.id !== bisher?.id) fehler.push(`Es gibt schon ein Rezept „${gleicherSlug.titel}“. Bitte einen anderen Titel wählen.`);
   }
 
-  if (fehler.length || !kategorie) return { ok: false, fehler };
+  if (fehler.length || !kategorie) {
+    if (bild.gross) fehler.push('Das Bild bitte noch einmal auswählen, es wurde nicht gespeichert.');
+    return { ok: false, fehler };
+  }
 
   // Wikilink-Ziele so, wie sie nach dem Speichern sind.
   const id = bisher?.id ?? crypto.randomUUID();
@@ -140,6 +150,10 @@ export async function speichereRezept(k: BuchKontext, e: RezeptEingabe, bisher?:
     return vorhanden?.name ?? neu.find((n) => `${n.gruppe.key}/${n.key}` === voll)!.name;
   });
 
+  // Das neue Bild wird direkt vor dem Schreiben abgelegt (unten), der Schlüssel steht aber schon fest.
+  const neuesBild = bild.gross ? neuerBildKey(k.buch.id) : null;
+  const behalten = bisher?.bildKey && !bild.entfernen ? bisher.bildKey : null;
+
   const werte = {
     kategorie_id: kategorie.id,
     slug,
@@ -151,6 +165,7 @@ export async function speichereRezept(k: BuchKontext, e: RezeptEingabe, bisher?:
     inhalt_html: await render(e.md),
     suchtext: suchtext({ titel: e.titel, tagNamen, md: e.md }),
     status: e.entwurf ? 'entwurf' : 'fertig',
+    bild_key: neuesBild ?? behalten,
   };
 
   const anweisungen: Anweisung[] = neu.map((n) =>
@@ -185,7 +200,17 @@ export async function speichereRezept(k: BuchKontext, e: RezeptEingabe, bisher?:
   if (geaendert) anweisungen.push(...(await verweiseNeuRendern(k, [e.titel, bisher?.titel], id, render)));
   anweisungen.push(ungenutzteFreieTagsLoeschen(k));
 
-  await db().batch(anweisungen);
+  // Klappt das Schreiben in die Datenbank nicht, wird das neue Bild wieder entfernt.
+  // Das alte Bild wird erst nach erfolgreichem Schreiben gelöscht.
+  try {
+    if (neuesBild) await speichereBild(neuesBild, { ...bild, gross: bild.gross! });
+    await db().batch(anweisungen);
+  } catch (fehler) {
+    if (neuesBild) await loescheBild(neuesBild);
+    throw fehler;
+  }
+  const altesBild = bisher?.bildKey;
+  if (altesBild && altesBild !== werte.bild_key) await loescheBild(altesBild);
   return { ok: true, slug };
 }
 
@@ -198,6 +223,7 @@ export async function loescheRezept(k: BuchKontext, bisher: RezeptRoh): Promise<
     ...(await verweiseNeuRendern(k, [bisher.titel], bisher.id, render)),
     ungenutzteFreieTagsLoeschen(k),
   ]);
+  if (bisher.bildKey) await loescheBild(bisher.bildKey);
 }
 
 /** Freie Tags (z. B. Entdeckt bei/in) entstehen beim Speichern und verschwinden, wenn kein Rezept sie mehr hat. */

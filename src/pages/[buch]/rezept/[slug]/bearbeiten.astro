@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../../layouts/Layout.astro';
 import RezeptFormular from '../../../../components/RezeptFormular.astro';
+import { bildAusFormular } from '../../../../lib/bilder';
 import { ladeBuch, ladeRezeptRoh } from '../../../../lib/db';
 import { eingabeAus, eingabeAusFormular, loescheRezept, speichereRezept } from '../../../../lib/rezept-speichern';
 
@@ -19,7 +20,7 @@ if (Astro.request.method === 'POST') {
     return Astro.redirect(basis, 303);
   }
   werte = eingabeAusFormular(formular);
-  const ergebnis = await speichereRezept(kontext, werte, rezept);
+  const ergebnis = await speichereRezept(kontext, werte, rezept, bildAusFormular(formular));
   if (ergebnis.ok) return Astro.redirect(`${basis}/rezept/${ergebnis.slug}`, 303);
   fehler = ergebnis.fehler;
   Astro.response.status = 422;
@@ -28,7 +29,7 @@ if (Astro.request.method === 'POST') {
 
 <Layout titel={`${rezept.titel} bearbeiten`} schmal kontext={kontext}>
   <h1>{rezept.titel} <span class="leise">bearbeiten</span></h1>
-  <RezeptFormular kontext={kontext} werte={werte} fehler={fehler} zurueck={`${basis}/rezept/${rezept.slug}`} loeschbar />
+  <RezeptFormular kontext={kontext} werte={werte} fehler={fehler} zurueck={`${basis}/rezept/${rezept.slug}`} bildKey={rezept.bildKey} loeschbar />
 </Layout>
 
 <style>

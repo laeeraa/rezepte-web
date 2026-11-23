@@ -86,6 +86,7 @@ export interface RezeptRoh {
   quelle: string[];
   md: string;
   entwurf: boolean;
+  bildKey: string | null;
 }
 
 export interface Seite {
@@ -192,14 +193,14 @@ export async function ladeRezept(k: BuchKontext, slug: string): Promise<Rezept |
 export async function ladeRezeptRoh(k: BuchKontext, slug: string): Promise<RezeptRoh | null> {
   const z = await db()
     .prepare(
-      `SELECT r.id, r.slug, r.titel, k.slug AS kategorie, r.portionen, r.zeit, r.quelle, r.inhalt_md, r.status,
+      `SELECT r.id, r.slug, r.titel, k.slug AS kategorie, r.portionen, r.zeit, r.quelle, r.inhalt_md, r.status, r.bild_key,
               (SELECT group_concat(rt.tag_id) FROM rezept_tag rt WHERE rt.rezept_id = r.id) AS tag_ids
        FROM rezept r JOIN kategorie k ON k.id = r.kategorie_id
        WHERE r.buch_id = ? AND r.slug = ?`,
     )
     .bind(k.buch.id, slug)
     .first<{ id: string; slug: string; titel: string; kategorie: string; portionen: string | null; zeit: number | null;
-      quelle: string; inhalt_md: string; status: string; tag_ids: string | null }>();
+      quelle: string; inhalt_md: string; status: string; bild_key: string | null; tag_ids: string | null }>();
   if (!z) return null;
   return {
     id: z.id,
@@ -212,6 +213,7 @@ export async function ladeRezeptRoh(k: BuchKontext, slug: string): Promise<Rezep
     quelle: JSON.parse(z.quelle),
     md: z.inhalt_md,
     entwurf: z.status === 'entwurf',
+    bildKey: z.bild_key,
   };
 }
 

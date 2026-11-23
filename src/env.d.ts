@@ -18,9 +18,21 @@ declare module 'cloudflare:workers' {
     batch<T = any>(anweisungen: D1PreparedStatement[]): Promise<D1Result<T>[]>;
   }
 
+  interface R2ObjectBody {
+    body: ReadableStream;
+    httpEtag: string;
+    httpMetadata?: { contentType?: string };
+  }
+  interface R2Bucket {
+    get(key: string): Promise<R2ObjectBody | null>;
+    put(key: string, wert: ArrayBuffer | ReadableStream, optionen?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+    delete(keys: string | string[]): Promise<void>;
+  }
+
   /** Bindings aus wrangler.jsonc und Secrets (lokal aus .dev.vars). */
   export const env: {
     DB: D1Database;
+    BILDER: R2Bucket;
     PASSWORT?: string;
   };
 }

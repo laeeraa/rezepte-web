@@ -3,6 +3,7 @@
 // Mit JavaScript: Tags, die nicht zur gewählten Kategorie passen, werden ausgeblendet; Vorschau des Texts.
 import type { BuchKontext } from '../lib/db';
 import type { RezeptEingabe } from '../lib/rezept-speichern';
+import { bildUrl, MAX_MB } from '../lib/bilder';
 
 interface Props {
   kontext: BuchKontext;
@@ -12,9 +13,11 @@ interface Props {
   zurueck: string;
   /** Beim Bearbeiten: Löschen anbieten. */
   loeschbar?: boolean;
+  /** Vorhandenes Foto des Rezepts. */
+  bildKey?: string | null;
 }
 
-const { kontext, werte, fehler, zurueck, loeschbar = false } = Astro.props;
+const { kontext, werte, fehler, zurueck, loeschbar = false, bildKey = null } = Astro.props;
 const basis = `/${kontext.buch.slug}`;
 const gewaehlt = new Set(werte.tags);
 const gruppen = kontext.gruppen.filter((g) => g.tags.length > 0 || g.frei);
@@ -22,7 +25,7 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
   auswahl === 'eins' ? (pflicht ? 'genau eins' : 'höchstens eins') : pflicht ? 'mindestens eins' : 'beliebig viele';
 ---
 
-<form method="post" class="formular" data-formular data-vorschau-url={`${basis}/vorschau`}>
+<form method="post" enctype="multipart/form-data" class="formular" data-formular data-vorschau-url={`${basis}/vorschau`}>
   {fehler.length > 0 && (
     <div class="fehlerbox" role="alert">
       <p><strong>Noch nicht gespeichert:</strong></p>
@@ -90,6 +93,21 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
     <span class="beschriftung">Quelle <span class="leise">Links, einer pro Zeile</span></span>
     <textarea name="quelle" rows="2" autocomplete="off">{werte.quelle}</textarea>
   </label>
+
+  <fieldset class="bild-feld">
+    <legend class="beschriftung">Foto <span class="leise">nur eigene Fotos vom fertigen Gericht</span></legend>
+    <div class="bild-zeile">
+      <img class="bild-vorschau" src={bildKey ? bildUrl(bildKey, true) : undefined} alt="" hidden={!bildKey} data-bild-vorschau />
+      <div class="bild-steuerung">
+        <input type="file" name="bild" accept="image/jpeg,image/png,image/webp,image/*" data-bild />
+        <input type="file" name="bild_klein" hidden data-bild-klein />
+        <span class="leise klein" data-bild-status>JPEG, PNG oder WebP, höchstens {MAX_MB} MB. Wird beim Hochladen verkleinert.</span>
+        {bildKey && (
+          <label class="entfernen"><input type="checkbox" name="bild_entfernen" value="ja" data-bild-entfernen /> Foto entfernen</label>
+        )}
+      </div>
+    </div>
+  </fieldset>
 
   <div class="feld">
     <div class="text-kopf">
@@ -180,6 +198,15 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
   .hilfe summary { cursor: pointer; }
   .hilfe code { font-size: 0.85rem; background: var(--chip); padding: 0.05rem 0.3rem; border-radius: 4px; }
 
+  .bild-feld { border: 0; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+  .bild-feld legend { padding: 0; margin-bottom: 0.35rem; }
+  .bild-zeile { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+  .bild-vorschau { width: 9rem; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 8px; background: var(--chip); }
+  .bild-steuerung { display: grid; gap: 0.4rem; flex: 1; min-width: 14rem; }
+  .bild-steuerung input[type='file'] { font: inherit; font-size: 0.9rem; max-width: 100%; }
+  .klein { font-size: 0.85rem; }
+  .entfernen { font-size: 0.9rem; display: flex; gap: 0.4rem; align-items: baseline; }
+
   .entwurf { display: flex; gap: 0.5rem; align-items: baseline; }
   .knoepfe { display: flex; gap: 1.25rem; align-items: center; }
   .haupt {
@@ -240,6 +267,61 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
       vorschau.innerHTML = await antwort.text();
     } catch {
       vorschau.textContent = 'Die Vorschau konnte nicht geladen werden.';
+    }
+  });
+
+  // Foto im Browser verkleinern: 1600 px für die Rezeptseite, 600 px für die Karten. Dabei fallen
+  // EXIF-Daten wie der Aufnahmeort weg. Klappt das nicht (z. B. HEIC in Chrome), geht das Original hoch.
+  const bildFeld = formular.querySelector<HTMLInputElement>('[data-bild]')!;
+  const kleinFeld = formular.querySelector<HTMLInputElement>('[data-bild-klein]')!;
+  const bildVorschau = formular.querySelector<HTMLImageElement>('[data-bild-vorschau]')!;
+  const bildStatus = formular.querySelector<HTMLElement>('[data-bild-status]')!;
+  const entfernen = formular.querySelector<HTMLInputElement>('[data-bild-entfernen]');
+  const speichernKnopf = formular.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+  async function verkleinern(quelle: ImageBitmap, kante: number): Promise<File> {
+    const faktor = Math.min(1, kante / Math.max(quelle.width, quelle.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(quelle.width * faktor);
+    canvas.height = Math.round(quelle.height * faktor);
+    canvas.getContext('2d')!.drawImage(quelle, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((fertig) => canvas.toBlob(fertig, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('Bild konnte nicht umgewandelt werden');
+    return new File([blob], `foto-${kante}.jpg`, { type: 'image/jpeg' });
+  }
+  const alsDateien = (datei: File) => {
+    const liste = new DataTransfer();
+    liste.items.add(datei);
+    return liste.files;
+  };
+
+  bildFeld.addEventListener('change', async () => {
+    const original = bildFeld.files?.[0];
+    kleinFeld.value = '';
+    if (!original) return;
+    if (entfernen) entfernen.checked = false;
+    speichernKnopf.disabled = true;
+    bildStatus.textContent = 'Foto wird verkleinert …';
+    try {
+      const bitmap = await createImageBitmap(original, { imageOrientation: 'from-image' });
+      const [gross, klein] = [await verkleinern(bitmap, 1600), await verkleinern(bitmap, 600)];
+      bitmap.close();
+      bildFeld.files = alsDateien(gross);
+      kleinFeld.files = alsDateien(klein);
+      bildVorschau.src = URL.createObjectURL(klein);
+      bildVorschau.hidden = false;
+      bildStatus.textContent = `Bereit (${Math.round(gross.size / 1024)} KB statt ${Math.round(original.size / 1024)} KB).`;
+    } catch {
+      bildStatus.textContent = 'Das Foto konnte im Browser nicht verkleinert werden und wird unverändert hochgeladen.';
+    } finally {
+      speichernKnopf.disabled = false;
+    }
+  });
+  entfernen?.addEventListener('change', () => {
+    bildVorschau.style.opacity = entfernen.checked ? '0.3' : '';
+    if (entfernen.checked) {
+      bildFeld.value = '';
+      kleinFeld.value = '';
     }
   });
 
