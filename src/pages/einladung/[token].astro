@@ -1,7 +1,8 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { ABMELDEN_URL } from '../../lib/anmeldung';
-import { ladeOffeneEinladung, nimmEinladungAn } from '../../lib/nutzer';
+import { ladeNutzer, ladeOffeneEinladung, nimmEinladungAn } from '../../lib/nutzer';
+import { starteSitzung } from '../../lib/sitzung';
 
 const { email, nutzer } = Astro.locals;
 const einladung = await ladeOffeneEinladung(Astro.params.token!);
@@ -14,6 +15,7 @@ if (Astro.request.method === 'POST' && einladung && !nutzer) {
   name = String(formular.get('name') ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
   if (!name) fehler = 'Bitte einen Namen angeben.';
   else if (await nimmEinladungAn(einladung.token, email!, name)) {
+    await starteSitzung(Astro.cookies, (await ladeNutzer(email!))!.id);
     return Astro.redirect(formular.get('weiter') === 'buch' ? '/konto/buch-anlegen' : '/', 303);
   } else fehler = 'Diese Einladung gilt leider nicht mehr.';
 }
@@ -35,7 +37,7 @@ if (!einladung && !nutzer) Astro.response.status = 404;
   ) : (
     <>
       <h1>Willkommen!</h1>
-      <p>{einladung.von} lädt dich zu den Lieblingsrezepten ein. Du kannst alle Rezeptbücher lesen und auch ein eigenes anlegen.</p>
+      <p>{einladung.von} lädt dich zu den Lieblingsrezepten ein. Mit einem Konto kannst du ein eigenes Rezeptbuch anlegen und andere einladen.</p>
       <form method="post" class="formular">
         {fehler && <p class="fehler" role="alert">{fehler}</p>}
         <label class="feld">

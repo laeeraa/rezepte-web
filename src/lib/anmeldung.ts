@@ -1,14 +1,15 @@
-// Wer ist angemeldet? Die Anmeldung selbst macht Cloudflare Access (Code per E-Mail) vor dem Worker.
-// Access schickt bei jeder Anfrage ein signiertes Token mit (Header Cf-Access-Jwt-Assertion),
-// hier wird es geprüft und die E-Mail-Adresse daraus gelesen. Ob die Person auch eingeladen ist,
-// entscheidet danach die Middleware anhand der Tabelle nutzer.
+// Anmeldung über Cloudflare Access (Code per E-Mail). Access schützt nur die Pfade /anmelden, /konto,
+// /einladung und /bearbeiten und schickt dort ein signiertes Token mit (Header Cf-Access-Jwt-Assertion).
+// Hier wird es geprüft und die E-Mail-Adresse daraus gelesen. Ob die Person ein Konto hat, entscheidet
+// danach die Middleware anhand der Tabelle nutzer. Auf den öffentlichen Seiten gilt das Sitzungs-Cookie
+// (src/lib/sitzung.ts).
 //
-// Lokal gibt es kein Access. Dort gilt die Adresse aus LOKALE_ANMELDUNG (.dev.vars), aber nur für
-// Anfragen an localhost. Zum Testen anderer Personen kann der Header X-Lokale-Anmeldung sie ersetzen.
+// Lokal gibt es kein Access. Dort gilt auf den geschützten Pfaden die Adresse aus LOKALE_ANMELDUNG (.dev.vars),
+// aber nur für Anfragen an localhost. Zum Testen anderer Personen kann der Header X-Lokale-Anmeldung sie ersetzen.
 import { env } from 'cloudflare:workers';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-const LOKAL = new Set(['localhost', '127.0.0.1', '[::1]']);
+export const LOKAL = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 // Schlüssel von Access, über Anfragen hinweg im Worker zwischengespeichert.
 let schluessel: { team: string; jwks: ReturnType<typeof createRemoteJWKSet> } | undefined;

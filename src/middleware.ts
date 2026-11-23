@@ -1,24 +1,41 @@
 import { defineMiddleware } from 'astro:middleware';
 import { angemeldeteEmail } from './lib/anmeldung';
-import { ladeNutzer } from './lib/nutzer';
+import { ladeNutzer, ladeNutzerZurSitzung } from './lib/nutzer';
+import { sitzungsHash, starteSitzung } from './lib/sitzung';
 
-// Seiten, die auch Angemeldete ohne Einladung sehen dürfen.
-const OHNE_EINLADUNG = /^\/(einladung\/[^/]+|kein-zugang)\/?$/;
+// Pfade hinter Cloudflare Access. Alles andere (Lesen) ist öffentlich.
+// Dieselben Pfade müssen in der Access-App eingetragen sein (README, „Cloudflare Access einrichten“).
+const GESCHUETZT = /^\/(anmelden|konto|einladung|bearbeiten)(\/|$)/;
+// Geschützte Pfade, die auch Angemeldete ohne Konto sehen dürfen.
+const OHNE_KONTO = /^\/(anmelden|einladung\/[^/]+)\/?$/;
 
 // Vor der Datenbank gab es nur ein Buch ohne Präfix (/rezept/pad-thai, /suesses, /rezepte?f=sauerteig).
 // Solche Adressen leiten auf dieses Buch weiter, damit Lesezeichen weiter funktionieren.
 const ALTES_BUCH = 'lara';
 const ALTE_ADRESSE = /^\/(rezept\/[^/]+|rezepte|wissen(\/[^/]+)?|suesses|brot-broetchen|herzhaftes|getraenke)\/?$/;
 
-export const onRequest = defineMiddleware(async ({ request, url, locals, redirect }, next) => {
-  const email = await angemeldeteEmail(request, url);
-  if (!email) {
-    // Online lässt Cloudflare Access niemanden ohne Anmeldung durch. Lokal fehlt dann LOKALE_ANMELDUNG in .dev.vars.
-    return new Response('Nicht angemeldet.', { status: 401, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+export const onRequest = defineMiddleware(async ({ request, url, locals, cookies, redirect }, next) => {
+  locals.email = null;
+  locals.nutzer = null;
+  const sitzung = await sitzungsHash(cookies);
+  const ausSitzung = sitzung ? await ladeNutzerZurSitzung(sitzung) : null;
+
+  if (GESCHUETZT.test(url.pathname)) {
+    const email = await angemeldeteEmail(request, url);
+    if (!email) {
+      // Online lässt Cloudflare Access hier niemanden ohne Anmeldung durch. Lokal fehlt dann LOKALE_ANMELDUNG.
+      return new Response('Nicht angemeldet.', { status: 401, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    }
+    locals.email = email;
+    locals.nutzer = await ladeNutzer(email);
+    if (!locals.nutzer && !OHNE_KONTO.test(url.pathname)) return redirect('/anmelden', 302);
+    // Damit auch die öffentlichen Seiten die Person erkennen.
+    if (locals.nutzer && ausSitzung?.id !== locals.nutzer.id) await starteSitzung(cookies, locals.nutzer.id);
+    return next();
   }
-  locals.email = email;
-  locals.nutzer = await ladeNutzer(email);
-  if (!locals.nutzer && !OHNE_EINLADUNG.test(url.pathname)) return redirect('/kein-zugang', 302);
+
+  locals.nutzer = ausSitzung;
+  if (sitzung && !ausSitzung) cookies.delete('sitzung', { path: '/' });
 
   if (ALTE_ADRESSE.test(url.pathname)) {
     const ziel = new URL(`/${ALTES_BUCH}${url.pathname}`, url);

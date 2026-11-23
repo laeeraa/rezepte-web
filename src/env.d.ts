@@ -45,9 +45,9 @@ declare module 'cloudflare:workers' {
 
 declare namespace App {
   interface Locals {
-    /** Angemeldete und eingeladene Person. Auf /einladung/… und /kein-zugang auch null. */
+    /** Angemeldete und eingeladene Person, auf öffentlichen Seiten null für Besucher ohne Anmeldung. */
     nutzer: import('./lib/nutzer').Nutzer | null;
-    /** E-Mail aus der Anmeldung, auch wenn die Person (noch) nicht eingeladen ist. */
+    /** E-Mail aus Cloudflare Access (nur auf geschützten Pfaden), auch wenn die Person nicht eingeladen ist. */
     email: string | null;
   }
 }

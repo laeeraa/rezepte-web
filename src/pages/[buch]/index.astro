@@ -31,7 +31,7 @@ const schnellzugriff = kontext.buch.schnellzugriff.map((s) => ({ text: s.text, h
   <ul class="chips schnell">
     {schnellzugriff.map((s) => <li><a class="chip" href={s.href}>{s.text}</a></li>)}
     {entwuerfe.length > 0 && (
-      <li><a class="chip" href={`${basis}/entwuerfe`}>{entwuerfe.length} {entwuerfe.length === 1 ? 'Entwurf' : 'Entwürfe'}</a></li>
+      <li><a class="chip" href={`/bearbeiten${basis}/entwuerfe`}>{entwuerfe.length} {entwuerfe.length === 1 ? 'Entwurf' : 'Entwürfe'}</a></li>
     )}
   </ul>
 

@@ -1,11 +1,11 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import RezeptFormular from '../../components/RezeptFormular.astro';
-import { bildAusFormular } from '../../lib/bilder';
-import { ladeBuch } from '../../lib/db';
-import { darfBearbeiten } from '../../lib/nutzer';
-import KeineBerechtigung from '../../components/KeineBerechtigung.astro';
-import { eingabeAusFormular, leereEingabe, speichereRezept } from '../../lib/rezept-speichern';
+import Layout from '../../../layouts/Layout.astro';
+import RezeptFormular from '../../../components/RezeptFormular.astro';
+import { bildAusFormular } from '../../../lib/bilder';
+import { ladeBuch } from '../../../lib/db';
+import { darfBearbeiten } from '../../../lib/nutzer';
+import KeineBerechtigung from '../../../components/KeineBerechtigung.astro';
+import { eingabeAusFormular, leereEingabe, speichereRezept } from '../../../lib/rezept-speichern';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 if (!kontext) return new Response(null, { status: 404 });
@@ -14,7 +14,7 @@ const darf = darfBearbeiten(Astro.locals.nutzer, kontext.buch.id);
 if (!darf) Astro.response.status = 403;
 
 let werte = leereEingabe();
-// Aus einer Kategorieseite heraus ist die Kategorie schon gewählt (/lara/neu?kategorie=suesses).
+// Aus einer Kategorieseite heraus ist die Kategorie schon gewählt (/bearbeiten/lara/neu?kategorie=suesses).
 werte.kategorie = Astro.url.searchParams.get('kategorie') ?? '';
 let fehler: string[] = [];
 

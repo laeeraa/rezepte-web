@@ -1,8 +1,8 @@
 // Vorschau im Rezeptformular: rendert den geschickten Markdown-Text genauso wie beim Speichern.
 import type { APIRoute } from 'astro';
-import { ladeBuch, ladeWikilinkZiele } from '../../lib/db';
-import { rezepttextRenderer } from '../../lib/rezepttext.mjs';
-import { darfBearbeiten } from '../../lib/nutzer';
+import { ladeBuch, ladeWikilinkZiele } from '../../../lib/db';
+import { rezepttextRenderer } from '../../../lib/rezepttext.mjs';
+import { darfBearbeiten } from '../../../lib/nutzer';
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const kontext = await ladeBuch(params.buch!);

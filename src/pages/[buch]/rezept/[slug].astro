@@ -9,6 +9,9 @@ import { darfBearbeiten } from '../../../lib/nutzer';
 const kontext = await ladeBuch(Astro.params.buch!);
 const rezept = kontext && (await ladeRezept(kontext, Astro.params.slug!));
 if (!kontext || !rezept) return new Response(null, { status: 404 });
+const darf = darfBearbeiten(Astro.locals.nutzer, kontext.buch.id);
+// Entwürfe sehen nur die, die im Buch schreiben dürfen.
+if (rezept.entwurf && !darf) return new Response(null, { status: 404 });
 
 const basis = `/${kontext.buch.slug}`;
 const kategorieLink = `${basis}/${rezept.kategorie.slug}`;
@@ -30,8 +33,8 @@ const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true 
         </>
       ))}
     </nav>
-    {darfBearbeiten(Astro.locals.nutzer, kontext.buch.id) && (
-      <a class="bearbeiten" href={`${basis}/rezept/${rezept.slug}/bearbeiten`}>Bearbeiten</a>
+    {darf && (
+      <a class="bearbeiten" href={`/bearbeiten${basis}/rezept/${rezept.slug}`}>Bearbeiten</a>
     )}
   </div>
 

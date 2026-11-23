@@ -1,7 +1,8 @@
 // Personen, ihre Bücher und Einladungen.
-// Angemeldet sind alle, die Cloudflare Access durchlassen. Auf die Seite dürfen nur Personen in `nutzer`,
-// und dort landet man nur über eine Einladung (oder den Import des ersten Buchs).
+// Lesen dürfen alle, auch ohne Anmeldung. Ein Konto (Tabelle `nutzer`) bekommt man nur über eine Einladung
+// (oder den Import des ersten Buchs); damit kann man Bücher anlegen, schreiben und einladen.
 import { env } from 'cloudflare:workers';
+import { zufallsToken } from './sitzung';
 
 export interface Nutzer {
   id: string;
@@ -24,16 +25,22 @@ export interface Einladung {
 const GUELTIG_TAGE = 14;
 const db = () => env.DB;
 
-export async function ladeNutzer(email: string): Promise<Nutzer | null> {
+export const ladeNutzer = (email: string) => ladeNutzerWo(`n.email = ?1`, email);
+
+/** Person zu einer gültigen Sitzung (Hash des Cookies), oder null. */
+export const ladeNutzerZurSitzung = (hash: string) =>
+  ladeNutzerWo(`n.id = (SELECT nutzer_id FROM sitzung WHERE hash = ?1 AND gueltig_bis > datetime('now'))`, hash);
+
+async function ladeNutzerWo(bedingung: string, wert: string): Promise<Nutzer | null> {
   const [personen, buecher] = await db().batch([
-    db().prepare(`SELECT id, email, name FROM nutzer WHERE email = ?1`).bind(email),
+    db().prepare(`SELECT n.id, n.email, n.name FROM nutzer n WHERE ${bedingung}`).bind(wert),
     db()
       .prepare(
         `SELECT b.id, b.slug, b.name, m.rolle FROM mitglied m
          JOIN buch b ON b.id = m.buch_id JOIN nutzer n ON n.id = m.nutzer_id
-         WHERE n.email = ?1 ORDER BY m.rolle, b.name`,
+         WHERE ${bedingung} ORDER BY m.rolle, b.name`,
       )
-      .bind(email),
+      .bind(wert),
   ]);
   const person = personen.results[0] as { id: string; email: string; name: string } | undefined;
   return person ? { ...person, buecher: buecher.results as Nutzer['buecher'] } : null;
@@ -42,11 +49,6 @@ export async function ladeNutzer(email: string): Promise<Nutzer | null> {
 export const darfBearbeiten = (nutzer: Nutzer | null, buchId: string) => !!nutzer?.buecher.some((b) => b.id === buchId);
 
 // ---------- Einladungen ----------
-
-function zufallsToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
 
 export async function erstelleEinladung(von: Nutzer, fuer: string): Promise<string> {
   const token = zufallsToken();

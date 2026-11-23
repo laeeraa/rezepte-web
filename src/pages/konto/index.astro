@@ -1,6 +1,5 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import { ABMELDEN_URL } from '../../lib/anmeldung';
 import { aendereName, erstelleEinladung, ladeEinladungen, zieheEinladungZurueck } from '../../lib/nutzer';
 
 const nutzer = Astro.locals.nutzer!;
@@ -40,12 +39,12 @@ const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDat
       </label>
       <button type="submit" class="neben">Ändern</button>
     </form>
-    <p class="leise">Angemeldet als {nutzer.email} · <a href={ABMELDEN_URL}>Abmelden</a></p>
+    <p class="leise">Angemeldet als {nutzer.email} · <a href="/abmelden">Abmelden</a></p>
   </section>
 
   <section>
     <h2>Meine Rezeptbücher</h2>
-    {nutzer.buecher.length === 0 && <p>Du hast noch kein eigenes Rezeptbuch. Lesen kannst du trotzdem alle.</p>}
+    {nutzer.buecher.length === 0 && <p>Du hast noch kein eigenes Rezeptbuch.</p>}
     <ul class="liste">
       {nutzer.buecher.map((b) => (
         <li><a href={`/${b.slug}`}>{b.name}</a> <span class="leise">{b.rolle === 'besitzer' ? 'gehört dir' : 'du schreibst mit'}</span></li>
@@ -57,8 +56,8 @@ const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDat
   <section id="einladungen">
     <h2>Freunde einladen</h2>
     <p class="leise">
-      Ein Einladungslink gilt einmal und zwei Wochen lang. Wer ihn öffnet, meldet sich mit der eigenen E-Mail-Adresse an
-      und kann danach alle Rezeptbücher lesen und ein eigenes anlegen.
+      Lesen kann jeder auch ohne Konto. Ein Einladungslink gibt jemandem ein Konto, um ein eigenes Rezeptbuch anzulegen
+      und selbst einzuladen. Er gilt einmal und zwei Wochen lang; angemeldet wird sich mit der eigenen E-Mail-Adresse.
     </p>
     <form method="post" class="zeile">
       <input type="hidden" name="aktion" value="einladen" />

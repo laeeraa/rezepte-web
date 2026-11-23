@@ -15,7 +15,7 @@ const rezepte = (await ladeRezepte(kontext)).filter((r) => r.kategorie.id === ka
   <div class="kopf">
     <h1 class="titel">{kategorie.name}</h1>
     {darfBearbeiten(Astro.locals.nutzer, kontext.buch.id) && (
-      <a class="neu" href={`/${kontext.buch.slug}/neu?kategorie=${kategorie.slug}`}>+ Rezept hinzufügen</a>
+      <a class="neu" href={`/bearbeiten/${kontext.buch.slug}/neu?kategorie=${kategorie.slug}`}>+ Rezept hinzufügen</a>
     )}
   </div>
   <RezeptListe kontext={kontext} rezepte={rezepte} gliederung="tag" />

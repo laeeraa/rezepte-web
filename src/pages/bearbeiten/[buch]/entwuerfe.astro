@@ -1,8 +1,8 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { ladeBuch, ladeEntwuerfe } from '../../lib/db';
-import { darfBearbeiten } from '../../lib/nutzer';
-import KeineBerechtigung from '../../components/KeineBerechtigung.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { ladeBuch, ladeEntwuerfe } from '../../../lib/db';
+import { darfBearbeiten } from '../../../lib/nutzer';
+import KeineBerechtigung from '../../../components/KeineBerechtigung.astro';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 if (!kontext) return new Response(null, { status: 404 });
@@ -21,7 +21,7 @@ const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDat
   <ul class="liste">
     {entwuerfe.map((e) => (
       <li>
-        <a href={`${basis}/rezept/${e.slug}/bearbeiten`}>{e.titel}</a>
+        <a href={`/bearbeiten${basis}/rezept/${e.slug}`}>{e.titel}</a>
         <span class="leise">zuletzt geändert am {datum(e.geaendert)}</span>
       </li>
     ))}

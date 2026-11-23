@@ -4,7 +4,7 @@ import { ladeBuecher } from '../lib/db';
 import { SEITENNAME } from '../lib/anzeige';
 
 const buecher = await ladeBuecher();
-const nutzer = Astro.locals.nutzer!;
+const { nutzer } = Astro.locals;
 ---
 
 <Layout titel="Alle Rezeptbücher">
@@ -21,7 +21,7 @@ const nutzer = Astro.locals.nutzer!;
       </li>
     ))}
   </ul>
-  {nutzer.buecher.length === 0 && (
+  {nutzer && nutzer.buecher.length === 0 && (
     <p class="eigenes">Noch kein eigenes Rezeptbuch? <a href="/konto/buch-anlegen">Jetzt anlegen</a></p>
   )}
 </Layout>

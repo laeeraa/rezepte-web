@@ -2,7 +2,6 @@
 import '../styles/global.css';
 import type { BuchKontext } from '../lib/db';
 import { SEITENNAME } from '../lib/anzeige';
-import { ABMELDEN_URL } from '../lib/anmeldung';
 import { darfBearbeiten } from '../lib/nutzer';
 
 interface Props {
@@ -19,12 +18,13 @@ const darf = !!kontext && darfBearbeiten(nutzer, kontext.buch.id);
 const NAME = kontext?.buch.name ?? SEITENNAME;
 const start = kontext ? `/${kontext.buch.slug}` : '/';
 const pfad = Astro.url.pathname.replace(/\/$/, '') || '/';
+const anmelden = `/anmelden?zurueck=${encodeURIComponent(Astro.url.pathname + Astro.url.search)}`;
 const links = kontext
   ? [
       ...kontext.kategorien.map((k) => ({ href: `${start}/${k.slug}`, text: k.name })),
       { href: `${start}/rezepte`, text: 'Alle Rezepte' },
       { href: `${start}/wissen`, text: 'Wissen' },
-      ...(darf ? [{ href: `${start}/neu`, text: '+ Neues Rezept' }] : []),
+      ...(darf ? [{ href: `/bearbeiten${start}/neu`, text: '+ Neues Rezept' }] : []),
     ]
   : [];
 ---
@@ -42,7 +42,9 @@ const links = kontext
     <header class="kopf">
       <div class="kopf-innen">
         <a class="marke" href={start}>{NAME}</a>
-        {nutzer && <a class="konto" href="/konto" aria-current={pfad.startsWith('/konto') ? 'page' : undefined}>{nutzer.name}</a>}
+        {nutzer
+          ? <a class="konto" href="/konto" aria-current={pfad.startsWith('/konto') ? 'page' : undefined}>{nutzer.name}</a>
+          : <a class="konto" href={anmelden}>Anmelden</a>}
         {links.length > 0 && (
           <nav class="nav" aria-label="Bereiche">
             {links.map((l) => (
@@ -57,7 +59,7 @@ const links = kontext
     </main>
     <footer class="fuss">
       {kontext ? <>{NAME} · <a href="/">Alle Rezeptbücher</a></> : NAME}
-      {nutzer && <><br />Angemeldet als {nutzer.name} · <a href="/konto">Konto</a> · <a href={ABMELDEN_URL}>Abmelden</a></>}
+      {nutzer && <><br />Angemeldet als {nutzer.name} · <a href="/konto">Konto</a> · <a href="/abmelden">Abmelden</a></>}
     </footer>
   </body>
 </html>

@@ -1,0 +1,26 @@
+---
+// Einstieg in die Anmeldung. Cloudflare Access fragt vorher nach der E-Mail und dem Code,
+// die Middleware startet danach die Sitzung. Hier geht es nur noch zurück zur vorherigen Seite.
+import Layout from '../layouts/Layout.astro';
+import { ABMELDEN_URL } from '../lib/anmeldung';
+
+// Nur Ziele auf dieser Seite, keine fremden Adressen (//boese.example).
+const angefragt = Astro.url.searchParams.get('zurueck') ?? '/';
+const zurueck = /^\/(?![/\\])/.test(angefragt) ? angefragt : '/';
+
+if (Astro.locals.nutzer) return Astro.redirect(zurueck, 303);
+Astro.response.status = 403;
+---
+
+<Layout titel="Kein Konto" schmal>
+  <h1>Noch kein Konto</h1>
+  <p>
+    Du bist als <strong>{Astro.locals.email}</strong> angemeldet, aber noch nicht eingeladen.
+    Lesen kannst du alle Rezepte auch so. Für ein eigenes Rezeptbuch frag jemanden, der schon dabei ist,
+    nach einem Einladungslink.
+  </p>
+  <p><a href="/">Zu den Rezeptbüchern</a></p>
+  <p class="leise">
+    Schon eingeladen, aber mit einer anderen Adresse? <a href={ABMELDEN_URL}>Abmelden</a> und mit der richtigen anmelden.
+  </p>
+</Layout>

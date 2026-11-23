@@ -6,7 +6,7 @@ import { slugify } from './slug.mjs';
 
 // Adressen direkt unter / , die schon Seiten sind oder alte Links weiterleiten (src/middleware.ts).
 const RESERVIERT = new Set([
-  'bild', 'konto', 'einladung', 'kein-zugang', 'cdn-cgi', '_astro', 'api', 'admin', 'neu', '404',
+  'bild', 'konto', 'einladung', 'anmelden', 'abmelden', 'bearbeiten', 'cdn-cgi', '_astro', 'api', 'admin', 'neu', '404',
   'rezept', 'rezepte', 'wissen', 'suesses', 'brot-broetchen', 'herzhaftes', 'getraenke',
 ]);
 const SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;

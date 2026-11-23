@@ -25,7 +25,7 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
   auswahl === 'eins' ? (pflicht ? 'genau eins' : 'höchstens eins') : pflicht ? 'mindestens eins' : 'beliebig viele';
 ---
 
-<form method="post" enctype="multipart/form-data" class="formular" data-formular data-vorschau-url={`${basis}/vorschau`}>
+<form method="post" enctype="multipart/form-data" class="formular" data-formular data-vorschau-url={`/bearbeiten${basis}/vorschau`}>
   {fehler.length > 0 && (
     <div class="fehlerbox" role="alert">
       <p><strong>Noch nicht gespeichert:</strong></p>

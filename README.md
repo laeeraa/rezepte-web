@@ -48,11 +48,14 @@ npm run neu-rendern -- --lokal    # bzw. --remote für die echte Datenbank
 
 ## Anmeldung und Rechte
 
-- **Anmelden** macht Cloudflare Access mit einem Code per E-Mail (`src/lib/anmeldung.ts` prüft das Token).
-- **Auf die Seite** darf nur, wer in der Tabelle `nutzer` steht. Dort landet man über einen Einladungslink,
-  den jede angemeldete Person unter `/konto` erzeugen kann (einmal gültig, zwei Wochen lang).
-  Wer angemeldet, aber nicht eingeladen ist, sieht `/kein-zugang`.
-- **Lesen** dürfen alle Eingeladenen alle Bücher. **Bearbeiten** nur Mitglieder des Buchs (Tabelle `mitglied`).
+- **Lesen** ist öffentlich: Bücher, Rezepte, Wissen und Fotos. Nur Entwürfe sehen ausschließlich Mitglieder des Buchs.
+- **Anmelden** macht Cloudflare Access mit einem Code per E-Mail, aber nur auf den Pfaden `/anmelden`, `/konto`,
+  `/einladung/…` und `/bearbeiten/…` (`src/lib/anmeldung.ts` prüft das Token). Danach setzt die Seite ein eigenes
+  Sitzungs-Cookie (30 Tage, `src/lib/sitzung.ts`), damit auch die öffentlichen Seiten die Person erkennen.
+  `/abmelden` löscht die Sitzung und meldet bei Access ab.
+- **Ein Konto** (Tabelle `nutzer`) bekommt man über einen Einladungslink, den jede Person mit Konto unter `/konto`
+  erzeugen kann (einmal gültig, zwei Wochen lang). Wer angemeldet ist, aber kein Konto hat, liest einfach weiter.
+- **Bearbeiten** dürfen nur Mitglieder des Buchs (Tabelle `mitglied`), unter `/bearbeiten/<buch>/…`.
 - **Eigenes Buch:** unter `/konto/buch-anlegen`, mit Kategorien und Tags aus `src/lib/startkonfiguration.mjs`.
 
 ## Veröffentlichen
@@ -71,10 +74,14 @@ Migrationen in die echte Datenbank ein und veröffentlicht den Worker (`wrangler
    BESITZER_EMAIL=<deine Login-Adresse> npm run import:vault
    npx wrangler d1 execute rezepte --remote --file .import/lara.sql
    ```
-5. Cloudflare Access für den Worker einschalten (Workers → lieblingsrezepte → Einstellungen → Domains & Routes →
-   bei `workers.dev` „Cloudflare Access“ aktivieren). Die Richtlinie der Access-App so einstellen, dass sich
-   **jede E-Mail-Adresse** mit Einmal-Code anmelden darf; wer rein darf, entscheidet die Seite selbst.
-   Team-Name und „Application Audience (AUD) Tag“ der App in `wrangler.jsonc` unter `vars` eintragen.
+5. Cloudflare Access einrichten (nur für die Anmelde-Pfade, Lesen bleibt öffentlich):
+   - Zero Trust → Settings → Authentication: Anmeldemethode **One-time PIN** hinzufügen.
+   - Zero Trust → Access → Policies: Richtlinie „Alle mit E-Mail-Code“ anlegen (Action **Allow**, Include **Everyone**).
+   - Zero Trust → Access → Applications → **Self-hosted**, Sitzungsdauer 1 Monat. Als Ziele die Adresse des Workers
+     (`lieblingsrezepte.<account>.workers.dev`) mit den Pfaden `anmelden`, `konto`, `konto/*`, `einladung/*` und
+     `bearbeiten/*`. Richtlinie „Alle mit E-Mail-Code“ zuweisen.
+   - **Nicht** den Dialog „Worker-Zugriff verwalten“ beim Worker benutzen, der schützt die ganze Seite.
+   - Team-Name (Zero Trust → Settings) und „Application Audience (AUD) Tag“ der App in `wrangler.jsonc` unter `vars` eintragen.
 6. Auf `main` mergen. Der Workflow im Vault (`website.yml`) und das Secret `PASSWORT` werden danach nicht mehr gebraucht.
 
 ## Datenbank
@@ -85,6 +92,7 @@ Das Schema steht in `migrations/` (eine Datei je Änderung, nie eine eingespielt
 |---|---|
 | `buch`, `nutzer`, `mitglied` | Rezeptbücher, Personen und wer in welchem Buch schreiben darf |
 | `einladung` | Einladungslinks: von wem, für wen, gültig bis, angenommen von |
+| `sitzung` | Angemeldete Sitzungen (nur Hash des Cookies), 30 Tage gültig |
 | `kategorie` | Ersetzt die Ordner: Name, Farbe aus der Palette, Vollkorn-Tausch an/aus |
 | `tag_gruppe`, `tag`, `tag_kategorie` | Tagsystem je Buch: Pflicht, Einzel- oder Mehrfachauswahl, Filterlogik, Anzeige |
 | `rezept`, `rezept_tag` | Rezepte mit Markdown (`inhalt_md`) und daraus erzeugtem HTML (`inhalt_html`) |
@@ -129,8 +137,9 @@ Das HTML wird beim Speichern erzeugt, nicht bei jedem Aufruf (`src/lib/rezepttex
 | `src/lib/mengen.mjs` | Mengenangaben erkennen |
 | `src/lib/vollkorn.mjs` | Mehl, Wasser und Sauerteig erkennen, Werte für den Vollkorn-Tausch |
 | `src/lib/suchtext.mjs` | Suchtext aus Titel, Tags und Zutaten |
-| `src/middleware.ts` | Anmeldung und Einladung prüfen, alte Adressen weiterleiten |
+| `src/middleware.ts` | Anmeldung (geschützte Pfade) bzw. Sitzung (öffentliche Seiten), alte Adressen weiterleiten |
 | `src/lib/anmeldung.ts` | Token von Cloudflare Access prüfen, lokale Anmeldung |
+| `src/lib/sitzung.ts` | Sitzungs-Cookie der Seite (Hash in Tabelle `sitzung`) |
 | `src/lib/nutzer.ts` | Personen, ihre Bücher, Rechte, Einladungen |
 | `src/lib/buch-anlegen.ts` | Neues Buch aus der Startkonfiguration, erlaubte Adressen |
 | `src/components/RezeptListe.astro` | Liste mit Suche und kombinierbaren Filtern |
