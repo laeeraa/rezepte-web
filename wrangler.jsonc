@@ -26,7 +26,7 @@
       "migrations_dir": "migrations"
     }
   ],
-  // Fotos der Rezepte. Vor dem ersten Deploy mit `npx wrangler r2 bucket create rezepte-bilder` anlegen.
+  // Fotos der Rezepte. Angelegt in Westeuropa (wrangler r2 bucket create rezepte-bilder --location weur).
   "r2_buckets": [
     {
       "binding": "BILDER",
