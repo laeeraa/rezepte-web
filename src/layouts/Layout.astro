@@ -3,6 +3,7 @@ import '../styles/global.css';
 import type { BuchKontext } from '../lib/db';
 import { SEITENNAME } from '../lib/anzeige';
 import { darfBearbeiten } from '../lib/nutzer';
+import { zaehleHinweise } from '../lib/erfahrungen';
 
 interface Props {
   titel?: string;
@@ -15,6 +16,8 @@ interface Props {
 const { titel, schmal = false, klasse = '', kontext } = Astro.props;
 const { nutzer } = Astro.locals;
 const darf = !!kontext && darfBearbeiten(nutzer, kontext.buch.id);
+// Neue Einträge anderer zu eigenen Rezepten; die Liste steht im Konto.
+const hinweise = nutzer ? await zaehleHinweise(nutzer) : 0;
 const NAME = kontext?.buch.name ?? SEITENNAME;
 const start = kontext ? `/${kontext.buch.slug}` : '/';
 const pfad = Astro.url.pathname.replace(/\/$/, '') || '/';
@@ -43,7 +46,12 @@ const links = kontext
       <div class="kopf-innen">
         <a class="marke" href={start}>{NAME}</a>
         {nutzer
-          ? <a class="konto" href="/konto" aria-current={pfad.startsWith('/konto') ? 'page' : undefined}>{nutzer.name}</a>
+          ? (
+            <a class="konto" href={hinweise ? '/konto#neu' : '/konto'} aria-current={pfad.startsWith('/konto') ? 'page' : undefined}>
+              {nutzer.name}
+              {hinweise > 0 && <span class="hinweis-zahl" aria-label={`${hinweise} neue Einträge zu deinen Rezepten`}>{hinweise}</span>}
+            </a>
+          )
           : <a class="konto" href={anmelden}>Anmelden</a>}
         {links.length > 0 && (
           <nav class="nav" aria-label="Bereiche">

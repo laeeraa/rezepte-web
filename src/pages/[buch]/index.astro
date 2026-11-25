@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { ladeBuch, ladeEntwuerfe, ladeRezepte } from '../../lib/db';
 import { darfBearbeiten } from '../../lib/nutzer';
+import { ladeZuletztGekocht, wann } from '../../lib/erfahrungen';
 import { abschnittId } from '../../lib/anzeige';
 
 const kontext = await ladeBuch(Astro.params.buch!);
@@ -9,7 +10,11 @@ if (!kontext) return new Response(null, { status: 404 });
 
 const basis = `/${kontext.buch.slug}`;
 const darf = darfBearbeiten(Astro.locals.nutzer, kontext.buch.id);
-const [rezepte, entwuerfe] = await Promise.all([ladeRezepte(kontext), darf ? ladeEntwuerfe(kontext) : []]);
+const [rezepte, entwuerfe, zuletztGekocht] = await Promise.all([
+  ladeRezepte(kontext),
+  darf ? ladeEntwuerfe(kontext) : [],
+  Astro.locals.nutzer ? ladeZuletztGekocht(kontext.buch.id) : [],
+]);
 const gliederungsTags = kontext.gruppen.filter((g) => g.darstellung === 'gliederung').flatMap((g) => g.tags);
 const kategorien = kontext.kategorien.map((k) => {
   const eigene = rezepte.filter((r) => r.kategorie.id === k.id);
@@ -34,6 +39,17 @@ const schnellzugriff = kontext.buch.schnellzugriff.map((s) => ({ text: s.text, h
       <li><a class="chip" href={`/bearbeiten${basis}/entwuerfe`}>{entwuerfe.length} {entwuerfe.length === 1 ? 'Entwurf' : 'Entwürfe'}</a></li>
     )}
   </ul>
+
+  {zuletztGekocht.length > 0 && (
+    <section class="zuletzt">
+      <h2>Zuletzt gekocht</h2>
+      <ul>
+        {zuletztGekocht.map((g) => (
+          <li><a href={`${basis}/rezept/${g.slug}`}>{g.titel}</a> <span class="leise">{wann(g.datum)} · {g.name}</span></li>
+        ))}
+      </ul>
+    </section>
+  )}
 
   <ul class="bereiche">
     {kategorien.map((k) => (
@@ -67,6 +83,11 @@ const schnellzugriff = kontext.buch.schnellzugriff.map((s) => ({ text: s.text, h
   }
   .suche input:focus { outline: 2px solid var(--akzent); outline-offset: 1px; }
   .schnell { margin: 0.9rem 0 2rem; }
+  .zuletzt { margin: -0.5rem 0 2rem; }
+  .zuletzt h2 { font-size: 1.15rem; margin: 0 0 0.5rem; }
+  .zuletzt ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; }
+  .zuletzt a { font-weight: 600; text-decoration: none; }
+  .zuletzt .leise { font-size: 0.85rem; }
 
   .bereiche {
     list-style: none;

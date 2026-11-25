@@ -1,0 +1,113 @@
+---
+// Verlauf unter einem Rezept: wer es wann gekocht hat (mit Notiz) und Kommentare.
+// Nur für angemeldete Personen; Gäste sehen einen kurzen Hinweis. Gespeichert wird in der Rezeptseite (POST).
+import type { Nutzer } from '../lib/nutzer';
+import { heute, MAX_TEXT, textTeile, wann, type Eintrag } from '../lib/erfahrungen';
+
+interface Props {
+  nutzer: Nutzer | null;
+  eintraege: Eintrag[];
+  /** Darf alle Einträge zu diesem Rezept löschen (Besitzerin des Buchs). */
+  istBesitzer: boolean;
+  fehler: string | null;
+  /** Bei einem Fehler: der eingegebene Text, damit nichts verloren geht. */
+  text: string;
+  anmelden: string;
+}
+
+const { nutzer, eintraege, istBesitzer, fehler, text, anmelden } = Astro.props;
+const amWann = (datum: string) => {
+  const w = wann(datum);
+  return /^\d/.test(w) ? `am ${w}` : w;
+};
+---
+
+<section class="erfahrungen" id="erfahrungen">
+  <h2>Erfahrungen</h2>
+  {!nutzer ? (
+    <p class="leise">
+      Angemeldete sehen hier, wer das Rezept wann gekocht hat, und hinterlassen Tipps. <a href={anmelden}>Anmelden</a>
+    </p>
+  ) : (
+    <>
+      <form method="post" class="neu">
+        {fehler && <p class="fehler" role="alert">{fehler}</p>}
+        <label class="feld">
+          <span class="beschriftung">Notiz oder Kommentar <span class="leise">optional beim Kochen</span></span>
+          <textarea name="text" rows="3" maxlength={MAX_TEXT} placeholder="z. B. „Mit Buttermilch statt Joghurt, hat super geklappt.“">{text}</textarea>
+        </label>
+        <div class="zeile">
+          <label class="datum">Gekocht am <input type="date" name="datum" value={heute()} max={heute()} /></label>
+          <button type="submit" name="aktion" value="gekocht" class="haupt">Gekocht ✓</button>
+          <button type="submit" name="aktion" value="kommentar" class="neben">Nur kommentieren</button>
+        </div>
+      </form>
+
+      {eintraege.length === 0 ? (
+        <p class="leise">Noch keine Einträge. Sei die oder der Erste!</p>
+      ) : (
+        <ul class="verlauf">
+          {eintraege.map((e) => (
+            <li class:list={['eintrag', e.art]}>
+              <div class="kopf">
+                <span class="symbol" aria-hidden="true">{e.art === 'gekocht' ? '🍳' : '💬'}</span>
+                <span><strong>{e.name}</strong> {e.art === 'gekocht' ? `hat es ${amWann(e.datum)} gekocht` : <span class="leise">{wann(e.datum)}</span>}</span>
+                {(e.nutzerId === nutzer.id || istBesitzer) && (
+                  <form method="post" class="loeschen" data-eintrag-loeschen>
+                    <input type="hidden" name="aktion" value="loeschen" />
+                    <input type="hidden" name="id" value={e.id} />
+                    <button type="submit">Löschen</button>
+                  </form>
+                )}
+              </div>
+              {e.text && (
+                <p class="text">
+                  {textTeile(e.text).map((t) => (t.link ? <a href={t.link} rel="noopener noreferrer nofollow" target="_blank">{t.text}</a> : t.text))}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  )}
+</section>
+
+<style>
+  .erfahrungen { margin-top: 3rem; padding-top: 1rem; border-top: 2px solid var(--farbe, var(--linie)); }
+  .erfahrungen h2 { font-size: 1.4rem; margin: 0 0 0.75rem; }
+  .neu { display: grid; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .feld { display: grid; gap: 0.35rem; }
+  .beschriftung { font-weight: 600; }
+  .beschriftung .leise { font-weight: 400; font-size: 0.85rem; margin-left: 0.3rem; }
+  textarea, input[type='date'] {
+    font: inherit;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--linie);
+    border-radius: 8px;
+    background: var(--karte);
+    color: var(--text);
+  }
+  textarea { width: 100%; resize: vertical; }
+  .zeile { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+  .datum { display: flex; align-items: center; gap: 0.5rem; font-size: 0.95rem; }
+  .haupt, .neben { font: inherit; font-weight: 600; padding: 0.5rem 1.1rem; border-radius: 999px; cursor: pointer; }
+  .haupt { border: 0; background: var(--farbe, var(--akzent)); color: var(--karte); }
+  .neben { border: 1px solid var(--linie); background: var(--karte); color: var(--text); }
+  .fehler { color: var(--fehler); margin: 0; }
+
+  .verlauf { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
+  .eintrag { padding: 0.7rem 0.9rem; background: var(--karte); border-radius: var(--radius); box-shadow: var(--schatten); }
+  .kopf { display: flex; gap: 0.5rem; align-items: baseline; }
+  .kopf > span:nth-child(2) { flex: 1; }
+  .text { margin: 0.4rem 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+  .loeschen button { font: inherit; font-size: 0.8rem; border: 0; background: none; color: var(--leise); text-decoration: underline; cursor: pointer; }
+</style>
+
+<script>
+  for (const formular of document.querySelectorAll<HTMLFormElement>('[data-eintrag-loeschen]')) {
+    formular.addEventListener('submit', (e) => {
+      if (!confirm('Diesen Eintrag löschen?')) e.preventDefault();
+    });
+  }
+</script>

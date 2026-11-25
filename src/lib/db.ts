@@ -65,6 +65,8 @@ export interface RezeptKurz {
   zeit: number | null;
   bildKey: string | null;
   suchtext: string;
+  /** Wann das Rezept zum ersten Mal fertig war (SQL-Zeit UTC), für das „Neu“-Badge. */
+  veroeffentlicht: string | null;
 }
 
 export interface Rezept extends RezeptKurz {
@@ -172,7 +174,7 @@ export async function ladeBuch(slug: string): Promise<BuchKontext | null> {
   };
 }
 
-const REZEPT_SPALTEN = `r.id, r.slug, r.titel, r.kategorie_id, r.portionen, r.zeit, r.bild_key, r.suchtext,
+const REZEPT_SPALTEN = `r.id, r.slug, r.titel, r.kategorie_id, r.portionen, r.zeit, r.bild_key, r.suchtext, r.veroeffentlicht,
   (SELECT group_concat(rt.tag_id) FROM rezept_tag rt WHERE rt.rezept_id = r.id) AS tag_ids`;
 
 /** Alle fertigen Rezepte eines Buchs, alphabetisch. */
@@ -278,7 +280,7 @@ interface GruppeZeile {
 interface TagZeile { id: string; key: string; name: string; gruppe_id: string; kategorien: string }
 interface RezeptZeile {
   id: string; slug: string; titel: string; kategorie_id: string; portionen: string | null; zeit: number | null;
-  bild_key: string | null; suchtext: string; tag_ids: string | null;
+  bild_key: string | null; suchtext: string; veroeffentlicht: string | null; tag_ids: string | null;
 }
 
 function zuBuch(z: BuchZeile): Buch {
@@ -301,5 +303,6 @@ function zuRezeptKurz(k: BuchKontext, z: RezeptZeile): RezeptKurz {
     zeit: z.zeit,
     bildKey: z.bild_key,
     suchtext: z.suchtext,
+    veroeffentlicht: z.veroeffentlicht,
   };
 }

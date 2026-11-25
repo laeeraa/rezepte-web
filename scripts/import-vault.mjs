@@ -251,6 +251,7 @@ for (const r of rezepte) {
     slug: r.slug, titel: r.titel, portionen: r.portionen, zeit: r.zeit, quelle: JSON.stringify(r.quelle),
     inhalt_md: r.md, inhalt_html: r.html, suchtext: r.suchtext, status: r.status,
     erstellt: r.erstellt ?? undefined, geaendert: r.geaendert ?? undefined,
+    veroeffentlicht: r.status === 'fertig' ? (r.erstellt ?? undefined) : undefined,
   }));
   for (const t of r.tags) sql.push(insert('rezept_tag', { rezept_id: r.id, tag_id: tagNachName.get(t).id }));
 }

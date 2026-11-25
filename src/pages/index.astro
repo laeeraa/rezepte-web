@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import { ladeBuecher } from '../lib/db';
 import { SEITENNAME } from '../lib/anzeige';
+import Neuigkeiten from '../components/Neuigkeiten.astro';
 
 const buecher = await ladeBuecher();
 const { nutzer } = Astro.locals;
@@ -24,6 +25,7 @@ const { nutzer } = Astro.locals;
   {nutzer && nutzer.buecher.length === 0 && (
     <p class="eigenes">Noch kein eigenes Rezeptbuch? <a href="/konto/buch-anlegen">Jetzt anlegen</a></p>
   )}
+  <Neuigkeiten />
 </Layout>
 
 <style>

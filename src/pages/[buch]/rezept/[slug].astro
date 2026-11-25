@@ -5,6 +5,8 @@ import { abschnittId, formatZeit, host, mitDarstellung } from '../../../lib/anze
 import { mengenTeile, mengenAttribute } from '../../../lib/mengen.mjs';
 import { bildUrl } from '../../../lib/bilder';
 import { darfBearbeiten } from '../../../lib/nutzer';
+import Erfahrungen from '../../../components/Erfahrungen.astro';
+import { ladeEintraege, loescheEintrag, speichereEintrag, wann } from '../../../lib/erfahrungen';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 const rezept = kontext && (await ladeRezept(kontext, Astro.params.slug!));
@@ -20,6 +22,30 @@ const merkmale = mitDarstellung(rezept.tags, 'merkmal');
 const herkunft = mitDarstellung(rezept.tags, 'herkunft');
 const filterLink = (voll: string) => `${basis}/rezepte?f=${voll}`;
 const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true }) : [];
+
+// Erfahrungen (gekocht, Kommentare): nur für Angemeldete.
+const { nutzer } = Astro.locals;
+let fehler: string | null = null;
+let eingabe = '';
+if (Astro.request.method === 'POST') {
+  if (!nutzer) return new Response(null, { status: 403 });
+  const formular = await Astro.request.formData();
+  const aktion = String(formular.get('aktion') ?? '');
+  if (aktion === 'loeschen') {
+    await loescheEintrag(nutzer, String(formular.get('id') ?? ''));
+    return Astro.redirect(`${Astro.url.pathname}#erfahrungen`, 303);
+  }
+  if (aktion === 'gekocht' || aktion === 'kommentar') {
+    eingabe = String(formular.get('text') ?? '');
+    fehler = await speichereEintrag(nutzer, rezept.id, aktion, String(formular.get('datum') ?? ''), eingabe);
+    if (!fehler) return Astro.redirect(`${Astro.url.pathname}#erfahrungen`, 303);
+    Astro.response.status = 422;
+  }
+}
+const eintraege = nutzer ? await ladeEintraege(rezept.id) : [];
+const gekocht = eintraege.filter((e) => e.art === 'gekocht');
+const istBesitzer = !!nutzer?.buecher.some((b) => b.id === kontext.buch.id && b.rolle === 'besitzer');
+const anmelden = `/anmelden?zurueck=${encodeURIComponent(Astro.url.pathname + '#erfahrungen')}`;
 ---
 
 <Layout titel={rezept.titel} schmal klasse={`f-${rezept.kategorie.farbe}`} kontext={kontext}>
@@ -72,6 +98,12 @@ const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true 
         <dd>{herkunft.map((t, i) => <>{i > 0 && ', '}<a href={filterLink(t.voll)}>{t.name}</a></>)}</dd>
       </div>
     )}
+    {gekocht.length > 0 && (
+      <div>
+        <dt>Gekocht</dt>
+        <dd><a href="#erfahrungen">{gekocht.length}×, zuletzt {wann(gekocht[0].datum)} von {gekocht[0].name}</a></dd>
+      </div>
+    )}
     {rezept.quelle.length > 0 && (
       <div>
         <dt>Quelle</dt>
@@ -94,6 +126,8 @@ const portionen = rezept.portionen ? mengenTeile(rezept.portionen, { ende: true 
       der Sauerteig wird anteilig weniger (bei ganz Vollkorn halbiert).
     </span>
   </p>
+
+  <Erfahrungen nutzer={nutzer} eintraege={eintraege} istBesitzer={istBesitzer} fehler={fehler} text={eingabe} anmelden={anmelden} />
 </Layout>
 
 <style>

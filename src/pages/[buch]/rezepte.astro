@@ -2,13 +2,15 @@
 import Layout from '../../layouts/Layout.astro';
 import RezeptListe from '../../components/RezeptListe.astro';
 import { ladeBuch, ladeRezepte } from '../../lib/db';
+import { ladeMeinGekocht } from '../../lib/erfahrungen';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 if (!kontext) return new Response(null, { status: 404 });
-const rezepte = await ladeRezepte(kontext);
+const { nutzer } = Astro.locals;
+const [rezepte, gekocht] = await Promise.all([ladeRezepte(kontext), nutzer ? ladeMeinGekocht(nutzer, kontext.buch.id) : null]);
 ---
 
 <Layout titel="Alle Rezepte" kontext={kontext}>
   <h1>Alle Rezepte</h1>
-  <RezeptListe kontext={kontext} rezepte={rezepte} gliederung="kategorie" />
+  <RezeptListe kontext={kontext} rezepte={rezepte} gliederung="kategorie" gekocht={gekocht} />
 </Layout>

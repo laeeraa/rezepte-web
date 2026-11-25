@@ -117,11 +117,11 @@ for (const r of rezepte) {
   const id = randomUUID();
   const tags = [...new Set(r.tags)].map(tagNach);
   sql.push(
-    `INSERT INTO rezept (id, buch_id, kategorie_id, slug, titel, portionen, zeit, quelle, inhalt_md, inhalt_html, suchtext, status, kopiert_von, erstellt_von) VALUES (` +
+    `INSERT INTO rezept (id, buch_id, kategorie_id, slug, titel, portionen, zeit, quelle, inhalt_md, inhalt_html, suchtext, status, kopiert_von, erstellt_von, veroeffentlicht) VALUES (` +
       [id, buch.id, r.kategorie.id, r.slug, r.titel, r.portionen, r.zeit, JSON.stringify(r.quelle), r.md, await render(r.md),
         suchtext({ titel: r.titel, tagNamen: tags.map((t) => t.name), md: r.md }), r.entwurf ? 'entwurf' : 'fertig', r.kopiertVon,
         besitzer?.nutzer_id ?? null].map(q).join(', ') +
-      `);`,
+      `, ${r.entwurf ? 'NULL' : "datetime('now')"});`,
   );
   for (const t of tags) sql.push(`INSERT INTO rezept_tag (rezept_id, tag_id) VALUES (${q(id)}, ${q(t.id)});`);
 }

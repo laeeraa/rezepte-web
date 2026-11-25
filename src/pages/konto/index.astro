@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { aendereName, erstelleEinladung, ladeEinladungen, zieheEinladungZurueck } from '../../lib/nutzer';
+import { ladeHinweiseUndMarkiere, textTeile, wann } from '../../lib/erfahrungen';
 
 const nutzer = Astro.locals.nutzer!;
 let neuerLink = '';
@@ -21,6 +22,8 @@ if (Astro.request.method === 'POST') {
 }
 
 const einladungen = await ladeEinladungen(nutzer);
+// Beim Ansehen gelten die Hinweise als gelesen (die Zahl oben verschwindet).
+const hinweise = Astro.request.method === 'GET' ? await ladeHinweiseUndMarkiere(nutzer) : [];
 const offen = einladungen.filter((e) => !e.angenommenAm);
 const angenommen = einladungen.filter((e) => e.angenommenAm);
 const link = (token: string) => new URL(`/einladung/${token}`, Astro.url).href;
@@ -41,6 +44,24 @@ const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDat
     </form>
     <p class="leise">Angemeldet als {nutzer.email} · <a href="/abmelden">Abmelden</a></p>
   </section>
+
+  {hinweise.length > 0 && (
+    <section id="neu">
+      <h2>Bei deinen Rezepten</h2>
+      <ul class="liste">
+        {hinweise.map((h) => (
+          <li class:list={{ ungelesen: h.neu }}>
+            <span>
+              {h.neu && <span class="neu-marke">Neu</span>}
+              <strong>{h.name}</strong> {h.art === 'gekocht' ? 'hat' : 'zu'} <a href={`/${h.buch}/rezept/${h.rezept.slug}#erfahrungen`}>{h.rezept.titel}</a>
+              {h.art === 'gekocht' && ' gekocht'} <span class="leise">{wann(h.zeit)}</span>
+            </span>
+            {h.text && <span class="eintrag-text">{textTeile(h.text).map((t) => t.text)}</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
 
   <section>
     <h2>Meine Rezeptbücher</h2>
@@ -131,6 +152,9 @@ const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDat
   .liste a { font-weight: 600; }
   .neu { margin-top: 1rem; padding: 0.75rem 1rem; border-left: 4px solid var(--akzent); background: var(--karte); border-radius: 8px; }
   .neu p { margin: 0 0 0.5rem; }
+  .ungelesen { border-left: 4px solid var(--akzent); }
+  .neu-marke { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--akzent); margin-right: 0.4rem; }
+  .eintrag-text { color: var(--leise); font-size: 0.9rem; white-space: pre-line; overflow-wrap: anywhere; }
   .kopieren { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
   .kopieren input { flex: 1; min-width: 12rem; font-size: 0.85rem; }
 </style>

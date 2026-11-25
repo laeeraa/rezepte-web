@@ -3,12 +3,15 @@ import Layout from '../../layouts/Layout.astro';
 import RezeptListe from '../../components/RezeptListe.astro';
 import { ladeBuch, ladeRezepte } from '../../lib/db';
 import { darfBearbeiten } from '../../lib/nutzer';
+import { ladeMeinGekocht } from '../../lib/erfahrungen';
 
 const kontext = await ladeBuch(Astro.params.buch!);
 const kategorie = kontext?.kategorien.find((k) => k.slug === Astro.params.kategorie);
 if (!kontext || !kategorie) return new Response(null, { status: 404 });
 
-const rezepte = (await ladeRezepte(kontext)).filter((r) => r.kategorie.id === kategorie.id);
+const { nutzer } = Astro.locals;
+const [alle, gekocht] = await Promise.all([ladeRezepte(kontext), nutzer ? ladeMeinGekocht(nutzer, kontext.buch.id) : null]);
+const rezepte = alle.filter((r) => r.kategorie.id === kategorie.id);
 ---
 
 <Layout titel={kategorie.name} klasse={`f-${kategorie.farbe}`} kontext={kontext}>
@@ -18,7 +21,7 @@ const rezepte = (await ladeRezepte(kontext)).filter((r) => r.kategorie.id === ka
       <a class="neu" href={`/bearbeiten/${kontext.buch.slug}/neu?kategorie=${kategorie.slug}`}>+ Rezept hinzufügen</a>
     )}
   </div>
-  <RezeptListe kontext={kontext} rezepte={rezepte} gliederung="tag" />
+  <RezeptListe kontext={kontext} rezepte={rezepte} gliederung="tag" gekocht={gekocht} />
 </Layout>
 
 <style>

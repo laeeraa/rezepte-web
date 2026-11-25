@@ -1,0 +1,51 @@
+---
+// „Was gibt's Neues“ auf der Übersicht: neue Rezepte für alle, gekocht und Kommentare für Angemeldete.
+import { ladeNeuigkeiten, wann, type Neuigkeit } from '../lib/erfahrungen';
+
+const neuigkeiten = await ladeNeuigkeiten(!!Astro.locals.nutzer);
+const link = (n: Neuigkeit, i = 0) => `/${n.buch.slug}/rezept/${n.rezepte[i].slug}`;
+const kurz = (text: string) => (text.length > 120 ? `${text.slice(0, 117).trimEnd()} …` : text);
+---
+
+{neuigkeiten.length > 0 && (
+  <section class="neues">
+    <h2>Was gibt's Neues</h2>
+    <ul>
+      {neuigkeiten.map((n) => (
+        <li>
+          <span class="symbol" aria-hidden="true">{n.art === 'hinzugefuegt' ? '📖' : n.art === 'gekocht' ? '🍳' : '💬'}</span>
+          <div>
+            {n.art === 'hinzugefuegt' && n.rezepte.length === 1 && (
+              <><strong>{n.person}</strong> hat <a href={link(n)}>{n.rezepte[0].titel}</a> hinzugefügt</>
+            )}
+            {n.art === 'hinzugefuegt' && n.rezepte.length > 1 && (
+              <>
+                <strong>{n.person}</strong> hat {n.rezepte.length} Rezepte zu <a href={`/${n.buch.slug}`}>{n.buch.name}</a> hinzugefügt
+                <span class="titel">
+                  {n.rezepte.slice(0, 3).map((r, i) => <>{i > 0 && ', '}<a href={link(n, i)}>{r.titel}</a></>)}
+                  {n.rezepte.length > 3 && ` und ${n.rezepte.length - 3} weitere`}
+                </span>
+              </>
+            )}
+            {n.art === 'gekocht' && <><strong>{n.person}</strong> hat <a href={link(n)}>{n.rezepte[0].titel}</a> gekocht</>}
+            {n.art === 'kommentar' && <><strong>{n.person}</strong> zu <a href={link(n)}>{n.rezepte[0].titel}</a></>}
+            {n.art !== 'hinzugefuegt' && n.text && <span class="text">„{kurz(n.text)}“</span>}
+            <span class="wann">{wann(n.zeit)}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
+
+<style>
+  .neues { margin-top: 2.5rem; }
+  .neues h2 { font-size: 1.4rem; margin: 0 0 0.75rem; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+  li { display: flex; gap: 0.6rem; padding: 0.65rem 0.9rem; background: var(--karte); border-radius: var(--radius); box-shadow: var(--schatten); }
+  li > div { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+  a { font-weight: 600; text-decoration: none; }
+  .titel, .text { font-size: 0.9rem; color: var(--leise); overflow-wrap: anywhere; }
+  .titel a { font-weight: 400; }
+  .wann { font-size: 0.8rem; color: var(--leise); }
+</style>

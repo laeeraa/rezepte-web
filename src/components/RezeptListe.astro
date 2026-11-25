@@ -2,15 +2,32 @@
 import type { BuchKontext, RezeptKurz, Tag } from '../lib/db';
 import { abschnittId, mitDarstellung } from '../lib/anzeige';
 import { bildUrl } from '../lib/bilder';
+import { istNeu, LANGE_TAGE, wann, type Gekocht } from '../lib/erfahrungen';
 
 interface Props {
   kontext: BuchKontext;
   rezepte: RezeptKurz[];
   /** Abschnitte nach dem Gliederungs-Tag, z. B. Art (Kategorieseiten), oder nach Kategorie (Alle Rezepte). */
   gliederung: 'tag' | 'kategorie';
+  /** Wann die angemeldete Person die Rezepte zuletzt gekocht hat; fehlt für Gäste. */
+  gekocht?: Map<string, Gekocht> | null;
 }
 
-const { kontext, rezepte, gliederung } = Astro.props;
+const { kontext, rezepte, gliederung, gekocht = null } = Astro.props;
+
+// „Gekocht“-Filter als Pseudo-Tags an den Karten, damit die normale Filterlogik sie mitnimmt.
+const lange = Date.now() - LANGE_TAGE * 86_400_000;
+const gekochtTags = (r: RezeptKurz) => {
+  if (!gekocht) return [];
+  const g = gekocht.get(r.id);
+  return !g ? ['gekocht:nie'] : Date.parse(g.letztes) < lange ? ['gekocht:lange'] : [];
+};
+const gekochtChips = gekocht
+  ? [
+      { tag: 'gekocht:nie', label: 'Noch nie gekocht', gruppe: 'gekocht' },
+      { tag: 'gekocht:lange', label: `Länger nicht gekocht`, gruppe: 'gekocht' },
+    ]
+  : [];
 const basis = `/${kontext.buch.slug}`;
 const vorhanden = new Set(rezepte.flatMap((r) => r.tags.map((t) => t.id)));
 const nurVorhandene = (tags: Tag[]) => tags.filter((t) => vorhanden.has(t.id));
@@ -86,6 +103,16 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
         </ul>
       </div>
     ))}
+    {gekochtChips.length > 0 && (
+      <div class="filtergruppe">
+        <span class="gruppentitel">Von mir</span>
+        <ul class="chips">
+          {gekochtChips.map((c) => (
+            <li><button type="button" class="chip" aria-pressed="false" data-tag={c.tag} data-gruppe={c.gruppe}>{c.label}</button></li>
+          ))}
+        </ul>
+      </div>
+    )}
     {auswahlGruppen.map((g) => (
       <div class="filtergruppe">
         <label class="gruppentitel" for={`auswahl-${g.key}`}>{g.titel}</label>
@@ -99,6 +126,15 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
 
   <div class="status">
     <span class="anzahl" data-anzahl>{rezepte.length} Rezepte</span>
+    {gekocht && (
+      <label class="sortierung">
+        <span class="unsichtbar">Sortierung</span>
+        <select data-sortierung>
+          <option value="">A–Z</option>
+          <option value="gekocht">Zuletzt von mir gekocht</option>
+        </select>
+      </label>
+    )}
     <ul class="chips aktiv" data-aktiv-liste aria-label="Aktive Filter"></ul>
     <button type="button" class="zuruecksetzen" data-zuruecksetzen hidden>Alle zurücksetzen</button>
   </div>
@@ -108,12 +144,22 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
       {a.titel && <h2 class="abschnitt-titel">{a.titel} <span class="zahl" data-zahl>{a.rezepte.length}</span></h2>}
       <ul class="karten">
         {a.rezepte.map((r) => (
-          <li class:list={['karte', `f-${r.kategorie.farbe}`]} data-id={r.id} data-tags={r.tags.map((t) => t.voll).join(' ')} data-text={r.suchtext}>
+          <li
+            class:list={['karte', `f-${r.kategorie.farbe}`]}
+            data-id={r.id}
+            data-tags={[...r.tags.map((t) => t.voll), ...gekochtTags(r)].join(' ')}
+            data-text={r.suchtext}
+            data-gekocht={gekocht?.get(r.id)?.letztes ?? ''}
+          >
             <a href={`${basis}/rezept/${r.slug}`}>
+              {istNeu(r.veroeffentlicht) && <span class="karte-neu">Neu</span>}
               {r.bildKey && <img class="karte-bild" src={bildUrl(r.bildKey, true)} alt="" loading="lazy" decoding="async" />}
               {gliederung === 'kategorie' && art(r) && <span class="karte-art">{art(r)}</span>}
               <span class="karte-titel">{r.titel}</span>
               <span class="karte-unter">{unterzeile(r)}</span>
+              {gekocht?.get(r.id) && (
+                <span class="karte-gekocht">Von mir {gekocht.get(r.id)!.anzahl}× gekocht, zuletzt {wann(gekocht.get(r.id)!.letztes)}</span>
+              )}
               {quelle(r) && <span class="karte-quelle">{quelle(r)}</span>}
             </a>
           </li>
@@ -256,6 +302,23 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
   .karte-art { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--farbe); font-weight: 600; }
   .karte-titel { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.25; }
   .karte-unter { font-size: 0.85rem; color: var(--leise); }
+  .karte { position: relative; }
+  .karte-neu {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 1;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--farbe, var(--akzent));
+    color: var(--karte);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .karte-gekocht { font-size: 0.8rem; color: var(--farbe); }
+  .sortierung select { font-size: 0.85rem; }
   .karte-quelle { margin-top: auto; padding-top: 0.2rem; font-size: 0.75rem; font-style: italic; color: var(--leise); }
   .leer { text-align: center; color: var(--leise); padding: 2rem 0; }
 </style>
@@ -273,6 +336,22 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
   const kartenTags = new Map(karten.map((k) => [k, new Set(k.dataset.tags!.split(' '))]));
   const abschnitte = [...box.querySelectorAll<HTMLElement>('[data-abschnitt]')];
   const aktivListe = box.querySelector<HTMLElement>('[data-aktiv-liste]')!;
+  const sortierung = box.querySelector<HTMLSelectElement>('[data-sortierung]');
+  const ursprung = new Map(karten.map((k, i) => [k, i]));
+
+  // Innerhalb jedes Abschnitts sortieren: alphabetisch (wie vom Server) oder zuletzt gekocht zuerst.
+  function sortieren() {
+    const nachGekocht = sortierung?.value === 'gekocht';
+    for (const liste of box.querySelectorAll<HTMLElement>('.karten')) {
+      const eintraege = [...liste.querySelectorAll<HTMLElement>(':scope > .karte')];
+      eintraege.sort((a, b) =>
+        nachGekocht
+          ? b.dataset.gekocht!.localeCompare(a.dataset.gekocht!) || ursprung.get(a)! - ursprung.get(b)!
+          : ursprung.get(a)! - ursprung.get(b)!,
+      );
+      liste.append(...eintraege);
+    }
+  }
 
   // Aktive Filter und Suchbegriff als Chips über der Liste, einzeln mit ✕ entfernbar.
   function zeigeAktive() {
@@ -359,6 +438,7 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
     const params = new URLSearchParams();
     if (zahl) params.set('f', aktive().join(','));
     if (suche.value.trim()) params.set('q', suche.value.trim());
+    if (sortierung?.value) params.set('s', sortierung.value);
     const query = params.toString();
     history.replaceState(null, '', (query ? `?${query}` : location.pathname) + location.hash);
   }
@@ -369,6 +449,7 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
   for (const c of chips) if (start.has(c.dataset.tag!)) c.setAttribute('aria-pressed', 'true');
   for (const a of auswahlen) for (const t of start) if (t.startsWith(`${a.dataset.auswahl}/`)) a.value = t;
   suche.value = params.get('q') ?? '';
+  if (sortierung && params.get('s') === 'gekocht') sortierung.value = 'gekocht';
 
   chips.forEach((c) =>
     c.addEventListener('click', () => {
@@ -378,11 +459,16 @@ const art = (r: RezeptKurz) => namen(mitDarstellung(r.tags, 'gliederung')).join(
   );
   auswahlen.forEach((a) => a.addEventListener('change', anwenden));
   suche.addEventListener('input', anwenden);
+  sortierung?.addEventListener('change', () => {
+    sortieren();
+    anwenden();
+  });
   reset.addEventListener('click', () => {
     chips.forEach((c) => c.setAttribute('aria-pressed', 'false'));
     auswahlen.forEach((a) => (a.value = ''));
     suche.value = '';
     anwenden();
   });
+  sortieren();
   anwenden();
 </script>

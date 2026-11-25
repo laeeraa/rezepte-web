@@ -182,14 +182,21 @@ export async function speichereRezept(
   if (bisher) {
     anweisungen.push(
       db()
-        .prepare(`UPDATE rezept SET ${spalten.map((s) => `${s} = ?`).join(', ')}, geaendert = datetime('now') WHERE id = ? AND buch_id = ?`)
-        .bind(...Object.values(werte), id, k.buch.id),
+        .prepare(
+          `UPDATE rezept SET ${spalten.map((s) => `${s} = ?`).join(', ')}, geaendert = datetime('now'),
+             veroeffentlicht = coalesce(veroeffentlicht, CASE WHEN ? = 'fertig' THEN datetime('now') END)
+           WHERE id = ? AND buch_id = ?`,
+        )
+        .bind(...Object.values(werte), werte.status, id, k.buch.id),
     );
   } else {
     anweisungen.push(
       db()
-        .prepare(`INSERT INTO rezept (id, buch_id, erstellt_von, ${spalten.join(', ')}) VALUES (?, ?, ?, ${spalten.map(() => '?').join(', ')})`)
-        .bind(id, k.buch.id, nutzerId ?? null, ...Object.values(werte)),
+        .prepare(
+          `INSERT INTO rezept (id, buch_id, erstellt_von, veroeffentlicht, ${spalten.join(', ')})
+           VALUES (?, ?, ?, CASE WHEN ? = 'fertig' THEN datetime('now') END, ${spalten.map(() => '?').join(', ')})`,
+        )
+        .bind(id, k.buch.id, nutzerId ?? null, werte.status, ...Object.values(werte)),
     );
   }
   anweisungen.push(db().prepare(`DELETE FROM rezept_tag WHERE rezept_id = ?`).bind(id));

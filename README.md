@@ -59,6 +59,12 @@ npm run neu-rendern -- --lokal    # bzw. --remote für die echte Datenbank
 - **Ein Konto** (Tabelle `nutzer`) bekommt man über einen Einladungslink, den jede Person mit Konto unter `/konto`
   erzeugen kann (einmal gültig, zwei Wochen lang). Wer angemeldet ist, aber kein Konto hat, liest einfach weiter.
 - **Bearbeiten** dürfen nur Mitglieder des Buchs (Tabelle `mitglied`), unter `/bearbeiten/<buch>/…`.
+- **Erfahrungen** (nur für Angemeldete): Unter jedem Rezept „Gekocht ✓“ mit Datum und Notiz sowie Kommentare
+  (`src/components/Erfahrungen.astro`, `src/lib/erfahrungen.ts`). Löschen dürfen die Person selbst und die Besitzerin des Buchs.
+  In Listen kann man nach „zuletzt von mir gekocht“ sortieren und nach „noch nie“ bzw. „länger nicht gekocht“ filtern.
+  Neue Einträge anderer zu eigenen Rezepten zeigt eine Zahl am Namen oben, die Liste steht im Konto.
+- **Was gibt's Neues** auf der Übersicht: neue Rezepte (für alle), gekocht und Kommentare (für Angemeldete).
+  Rezepte gelten 14 Tage nach dem Veröffentlichen als „Neu“.
 - **Eigenes Buch:** unter `/konto/buch-anlegen`, mit Kategorien und Tags aus `src/lib/startkonfiguration.mjs`.
 
 ## Veröffentlichen
@@ -96,6 +102,7 @@ Das Schema steht in `migrations/` (eine Datei je Änderung, nie eine eingespielt
 | `buch`, `nutzer`, `mitglied` | Rezeptbücher, Personen und wer in welchem Buch schreiben darf |
 | `einladung` | Einladungslinks: von wem, für wen, gültig bis, angenommen von |
 | `sitzung` | Angemeldete Sitzungen (nur Hash des Cookies), 30 Tage gültig |
+| `eintrag` | Verlauf unter Rezepten: gekocht (mit Datum, Notiz) und Kommentare |
 | `kategorie` | Ersetzt die Ordner: Name, Farbe aus der Palette, Vollkorn-Tausch an/aus |
 | `tag_gruppe`, `tag`, `tag_kategorie` | Tagsystem je Buch: Pflicht, Einzel- oder Mehrfachauswahl, Filterlogik, Anzeige |
 | `rezept`, `rezept_tag` | Rezepte mit Markdown (`inhalt_md`) und daraus erzeugtem HTML (`inhalt_html`) |

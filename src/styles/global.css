@@ -122,6 +122,18 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
   border-radius: 999px;
 }
 .konto:hover, .konto[aria-current='page'] { color: var(--text); background: var(--chip); }
+.hinweis-zahl {
+  display: inline-block;
+  min-width: 1.3em;
+  margin-left: 0.35rem;
+  padding: 0 0.35em;
+  border-radius: 999px;
+  background: var(--akzent);
+  color: var(--karte);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+}
 @media (min-width: 48rem) {
   .nav { order: 1; }
   .konto { order: 2; }
