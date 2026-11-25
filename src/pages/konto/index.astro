@@ -68,7 +68,12 @@ const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDat
     {nutzer.buecher.length === 0 && <p>Du hast noch kein eigenes Rezeptbuch.</p>}
     <ul class="liste">
       {nutzer.buecher.map((b) => (
-        <li><a href={`/${b.slug}`}>{b.name}</a> <span class="leise">{b.rolle === 'besitzer' ? 'gehört dir' : 'du schreibst mit'}</span></li>
+        <li>
+          <span>
+            <a href={`/${b.slug}`}>{b.name}</a> <span class="leise">{b.rolle === 'besitzer' ? 'gehört dir' : 'du schreibst mit'}</span>
+            {b.rolle === 'besitzer' && <> · <a class="einstellungen" href={`/bearbeiten/${b.slug}/einstellungen`}>Einstellungen</a></>}
+          </span>
+        </li>
       ))}
     </ul>
     <p><a class="knopf" href="/konto/buch-anlegen">+ Neues Rezeptbuch anlegen</a></p>
@@ -150,6 +155,7 @@ const datum = (sql: string) => new Date(sql.replace(' ', 'T') + 'Z').toLocaleDat
   .liste { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
   .liste li { display: grid; gap: 0.4rem; padding: 0.7rem 0.9rem; background: var(--karte); border-radius: var(--radius); box-shadow: var(--schatten); }
   .liste a { font-weight: 600; }
+  .liste a.einstellungen { font-weight: 400; font-size: 0.9rem; }
   .neu { margin-top: 1rem; padding: 0.75rem 1rem; border-left: 4px solid var(--akzent); background: var(--karte); border-radius: 8px; }
   .neu p { margin: 0 0 0.5rem; }
   .ungelesen { border-left: 4px solid var(--akzent); }

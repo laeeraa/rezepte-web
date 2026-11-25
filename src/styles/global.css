@@ -69,10 +69,34 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
 }
 .inhalt.schmal { max-width: 44rem; }
 
+/* Farbthemen der Bücher (src/lib/themen.ts): Kopfbereich in Pastell, Akzent für Links und Knöpfe.
+   Ohne Thema („standard“) gelten die Grundfarben. Alle Paare mit Kontrast ≥ 4,5:1 geprüft. */
+:root {
+  --kopf: var(--karte);
+  --kopf-text: var(--text);
+  --kopf-leise: var(--leise);
+  --kopf-chip: var(--chip);
+  --kopf-linie: var(--linie);
+}
+.thema-lila { --kopf: #ece4f6; --kopf-text: #33264a; --kopf-leise: #5e4d78; --kopf-chip: #ddd0ee; --kopf-linie: #ddd0ee; --akzent: #7a4fa3; }
+.thema-rosa { --kopf: #f8e5ec; --kopf-text: #4a2333; --kopf-leise: #7a4a5d; --kopf-chip: #f0d1dd; --kopf-linie: #f0d1dd; --akzent: #b0456a; }
+.thema-gruen { --kopf: #e4efe1; --kopf-text: #263b23; --kopf-leise: #4a6446; --kopf-chip: #d3e5ce; --kopf-linie: #d3e5ce; --akzent: #4d7a45; }
+.thema-petrol { --kopf: #dfeff1; --kopf-text: #1f3d42; --kopf-leise: #43666c; --kopf-chip: #cce5e9; --kopf-linie: #cce5e9; --akzent: #2f7a86; }
+.thema-blau { --kopf: #e4eaf7; --kopf-text: #233552; --kopf-leise: #4a5d7e; --kopf-chip: #d3dcf0; --kopf-linie: #d3dcf0; --akzent: #3b5f9e; }
+.thema-orange { --kopf: #f7e9dd; --kopf-text: #4c2c17; --kopf-leise: #7a543e; --kopf-chip: #efd8c6; --kopf-linie: #efd8c6; --akzent: #a8531c; }
+@media (prefers-color-scheme: dark) {
+  .thema-lila { --kopf: #2b2435; --kopf-text: #ebe2f7; --kopf-leise: #bfb0d6; --kopf-chip: #3c3250; --kopf-linie: #3c3250; --akzent: #b597e3; }
+  .thema-rosa { --kopf: #352429; --kopf-text: #f6dfe8; --kopf-leise: #d6afbf; --kopf-chip: #4a3039; --kopf-linie: #4a3039; --akzent: #e27d9f; }
+  .thema-gruen { --kopf: #222d21; --kopf-text: #dcebd8; --kopf-leise: #a9c3a3; --kopf-chip: #2f402d; --kopf-linie: #2f402d; --akzent: #8cbf7f; }
+  .thema-petrol { --kopf: #1e2d30; --kopf-text: #d6ecef; --kopf-leise: #9fc4ca; --kopf-chip: #2a3f43; --kopf-linie: #2a3f43; --akzent: #6cbccb; }
+  .thema-blau { --kopf: #222936; --kopf-text: #dde5f5; --kopf-leise: #aab8d6; --kopf-chip: #2e384b; --kopf-linie: #2e384b; --akzent: #8fb0e8; }
+  .thema-orange { --kopf: #33281f; --kopf-text: #f4e3d6; --kopf-leise: #d6b6a0; --kopf-chip: #47382d; --kopf-linie: #47382d; --akzent: #e9a06b; }
+}
+
 /* Kopfzeile */
 .kopf {
-  background: var(--karte);
-  border-bottom: 1px solid var(--linie);
+  background: var(--kopf);
+  border-bottom: 1px solid var(--kopf-linie);
   padding-top: env(safe-area-inset-top, 0px);
 }
 .kopf-innen {
@@ -88,7 +112,7 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
   font-family: var(--serif);
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--kopf-text);
   text-decoration: none;
 }
 .nav {
@@ -102,26 +126,26 @@ h1 { font-size: clamp(1.9rem, 5vw, 2.6rem); margin: 0.2em 0 0.4em; }
 }
 .nav a {
   white-space: nowrap;
-  color: var(--leise);
+  color: var(--kopf-leise);
   text-decoration: none;
   padding: 0.35rem 0.7rem;
   border-radius: 999px;
   font-size: 0.95rem;
 }
-.nav a:hover { background: var(--chip); color: var(--text); }
-.nav a[aria-current='page'] { background: var(--chip); color: var(--text); font-weight: 600; }
+.nav a:hover { background: var(--kopf-chip); color: var(--kopf-text); }
+.nav a[aria-current='page'] { background: var(--kopf-chip); color: var(--kopf-text); font-weight: 600; }
 /* Name der angemeldeten Person: am Handy rechts neben dem Buchnamen, breit hinter der Navigation. */
 .konto {
   margin-left: auto;
   white-space: nowrap;
   font-size: 0.9rem;
-  color: var(--leise);
+  color: var(--kopf-leise);
   text-decoration: none;
   padding: 0.3rem 0.75rem;
-  border: 1px solid var(--linie);
+  border: 1px solid var(--kopf-linie);
   border-radius: 999px;
 }
-.konto:hover, .konto[aria-current='page'] { color: var(--text); background: var(--chip); }
+.konto:hover, .konto[aria-current='page'] { color: var(--kopf-text); background: var(--kopf-chip); }
 .hinweis-zahl {
   display: inline-block;
   min-width: 1.3em;

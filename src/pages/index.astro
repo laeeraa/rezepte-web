@@ -13,7 +13,7 @@ const { nutzer } = Astro.locals;
   <p class="leise">Die Rezeptbücher von uns allen.</p>
   <ul class="buecher">
     {buecher.map((b) => (
-      <li>
+      <li class={`thema-${b.farbe}`}>
         <a href={`/${b.slug}`}>
           <span class="name">{b.name}</span>
           {b.besitzer && <span class="von">von {b.besitzer}</span>}
@@ -45,6 +45,7 @@ const { nutzer } = Astro.locals;
     background: var(--karte);
     border-radius: var(--radius);
     border-top: 5px solid var(--akzent);
+    background: linear-gradient(var(--kopf), var(--karte) 4.5rem);
     box-shadow: var(--schatten);
     color: var(--text);
     text-decoration: none;

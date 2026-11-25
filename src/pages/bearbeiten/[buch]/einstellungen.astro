@@ -1,0 +1,105 @@
+---
+// Einstellungen eines Buchs: Name und Farbthema. Nur für die Besitzerin.
+import { env } from 'cloudflare:workers';
+import Layout from '../../../layouts/Layout.astro';
+import { ladeBuch } from '../../../lib/db';
+import { istThema, THEMEN } from '../../../lib/themen';
+
+const kontext = await ladeBuch(Astro.params.buch!);
+if (!kontext) return new Response(null, { status: 404 });
+const basis = `/${kontext.buch.slug}`;
+const istBesitzer = !!Astro.locals.nutzer?.buecher.some((b) => b.id === kontext.buch.id && b.rolle === 'besitzer');
+if (!istBesitzer) Astro.response.status = 403;
+
+let name = kontext.buch.name;
+let farbe = kontext.buch.farbe;
+const fehler: string[] = [];
+
+if (istBesitzer && Astro.request.method === 'POST') {
+  const formular = await Astro.request.formData();
+  name = String(formular.get('name') ?? '').trim().replace(/\s+/g, ' ').slice(0, 80);
+  farbe = String(formular.get('farbe') ?? '');
+  if (!name) fehler.push('Der Name des Buchs fehlt.');
+  if (!istThema(farbe)) fehler.push('Bitte eine Farbe wählen.');
+  if (!fehler.length) {
+    await env.DB.prepare(`UPDATE buch SET name = ?, farbe = ? WHERE id = ?`).bind(name, farbe, kontext.buch.id).run();
+    return Astro.redirect(basis, 303);
+  }
+  Astro.response.status = 422;
+}
+---
+
+<Layout titel="Einstellungen" schmal kontext={kontext}>
+  <h1>Einstellungen</h1>
+  {!istBesitzer ? (
+    <p>Die Einstellungen kann nur die Besitzerin von „{kontext.buch.name}“ ändern. <a href={basis}>Zurück zum Buch</a></p>
+  ) : (
+    <form method="post" class="formular">
+      {fehler.length > 0 && <ul class="fehler" role="alert">{fehler.map((f) => <li>{f}</li>)}</ul>}
+      <label class="feld">
+        <span class="beschriftung">Name des Buchs</span>
+        <input name="name" value={name} required maxlength="80" />
+      </label>
+
+      <fieldset class="themen">
+        <legend class="beschriftung">Farbe</legend>
+        <div class="auswahl">
+          {THEMEN.map((t) => (
+            <label class={`thema thema-${t.key}`}>
+              <input type="radio" name="farbe" value={t.key} checked={t.key === farbe} data-thema />
+              <span class="probe" aria-hidden="true"><span class="punkt"></span></span>
+              <span class="name">{t.name}</span>
+            </label>
+          ))}
+        </div>
+        <p class="leise klein">Färbt den Kopf der Seite, Links und Knöpfe. Die Farben der Kategorien bleiben.</p>
+      </fieldset>
+
+      <div class="knoepfe">
+        <button type="submit" class="haupt">Speichern</button>
+        <a href={basis}>Abbrechen</a>
+      </div>
+    </form>
+  )}
+</Layout>
+
+<style>
+  .formular { display: grid; gap: 1.25rem; }
+  .feld { display: grid; gap: 0.35rem; }
+  .beschriftung { font-weight: 600; }
+  input:not([type='radio']) { font: inherit; padding: 0.6rem 0.75rem; border: 1px solid var(--linie); border-radius: 8px; background: var(--karte); color: var(--text); }
+  .themen { border: 0; padding: 0; margin: 0; }
+  .themen legend { padding: 0; margin-bottom: 0.5rem; }
+  .auswahl { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: 0.6rem; }
+  .thema { position: relative; display: grid; gap: 0.35rem; cursor: pointer; }
+  .thema input { position: absolute; opacity: 0; }
+  .probe {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    height: 3.25rem;
+    padding: 0.4rem;
+    border-radius: 10px;
+    background: var(--kopf);
+    border: 2px solid var(--kopf-linie);
+  }
+  .punkt { width: 1rem; height: 1rem; border-radius: 999px; background: var(--akzent); }
+  .name { font-size: 0.9rem; text-align: center; }
+  .thema input:checked + .probe { border-color: var(--akzent); box-shadow: 0 0 0 2px var(--akzent); }
+  .thema input:checked ~ .name { font-weight: 700; }
+  .thema input:focus-visible + .probe { outline: 2px solid var(--text); outline-offset: 3px; }
+  .klein { font-size: 0.85rem; }
+  .fehler { color: var(--fehler); margin: 0; padding-left: 1.2rem; }
+  .knoepfe { display: flex; gap: 1.25rem; align-items: center; }
+  .haupt { font: inherit; font-weight: 600; padding: 0.65rem 1.5rem; border: 0; border-radius: 999px; background: var(--akzent); color: var(--papier); cursor: pointer; }
+</style>
+
+<script>
+  // Vorschau: Die Seite übernimmt die gewählte Farbe sofort, gespeichert wird erst mit „Speichern“.
+  for (const auswahl of document.querySelectorAll<HTMLInputElement>('[data-thema]')) {
+    auswahl.addEventListener('change', () => {
+      for (const klasse of [...document.body.classList]) if (klasse.startsWith('thema-')) document.body.classList.remove(klasse);
+      document.body.classList.add(`thema-${auswahl.value}`);
+    });
+  }
+</script>

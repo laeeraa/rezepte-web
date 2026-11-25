@@ -9,6 +9,8 @@ export interface Buch {
   name: string;
   /** Chips auf der Startseite des Buchs, `ziel` relativ zum Buch. */
   schnellzugriff: { text: string; ziel: string }[];
+  /** Farbthema (src/lib/themen.ts), als Klasse thema-<farbe>. */
+  farbe: string;
 }
 
 export interface Kategorie {
@@ -106,7 +108,7 @@ const db = () => env.DB;
 export async function ladeBuecher(): Promise<(Buch & { anzahl: number; besitzer: string | null })[]> {
   const { results } = await db()
     .prepare(
-      `SELECT b.id, b.slug, b.name, b.schnellzugriff,
+      `SELECT b.id, b.slug, b.name, b.schnellzugriff, b.farbe,
               (SELECT count(*) FROM rezept r WHERE r.buch_id = b.id AND r.status = 'fertig') AS anzahl,
               (SELECT group_concat(n.name, ', ') FROM mitglied m JOIN nutzer n ON n.id = m.nutzer_id
                WHERE m.buch_id = b.id AND m.rolle = 'besitzer') AS besitzer
@@ -122,7 +124,7 @@ export async function ladeBuecher(): Promise<(Buch & { anzahl: number; besitzer:
 export async function ladeBuch(slug: string): Promise<BuchKontext | null> {
   const buchId = `(SELECT id FROM buch WHERE slug = ?1)`;
   const [buecher, kategorien, gruppen, tags] = await db().batch([
-    db().prepare(`SELECT id, slug, name, schnellzugriff FROM buch WHERE slug = ?1`).bind(slug),
+    db().prepare(`SELECT id, slug, name, schnellzugriff, farbe FROM buch WHERE slug = ?1`).bind(slug),
     db().prepare(`SELECT * FROM kategorie WHERE buch_id = ${buchId} ORDER BY reihenfolge`).bind(slug),
     db().prepare(`SELECT * FROM tag_gruppe WHERE buch_id = ${buchId} ORDER BY reihenfolge`).bind(slug),
     db()
@@ -271,7 +273,7 @@ export async function ladeSeite(k: BuchKontext, slug: string): Promise<SeiteVoll
 
 // ---------- Zeilen aus D1 ----------
 
-interface BuchZeile { id: string; slug: string; name: string; schnellzugriff: string }
+interface BuchZeile { id: string; slug: string; name: string; schnellzugriff: string; farbe: string }
 interface KategorieZeile { id: string; slug: string; name: string; farbe: string; vollkorn_tausch: number }
 interface GruppeZeile {
   id: string; key: string; name: string; auswahl: TagGruppe['auswahl']; pflicht: number; frei: number;
@@ -284,7 +286,7 @@ interface RezeptZeile {
 }
 
 function zuBuch(z: BuchZeile): Buch {
-  return { id: z.id, slug: z.slug, name: z.name, schnellzugriff: JSON.parse(z.schnellzugriff) };
+  return { id: z.id, slug: z.slug, name: z.name, schnellzugriff: JSON.parse(z.schnellzugriff), farbe: z.farbe };
 }
 
 function zuRezeptKurz(k: BuchKontext, z: RezeptZeile): RezeptKurz {

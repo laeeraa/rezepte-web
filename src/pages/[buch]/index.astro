@@ -10,6 +10,7 @@ if (!kontext) return new Response(null, { status: 404 });
 
 const basis = `/${kontext.buch.slug}`;
 const darf = darfBearbeiten(Astro.locals.nutzer, kontext.buch.id);
+const istBesitzer = !!Astro.locals.nutzer?.buecher.some((b) => b.id === kontext.buch.id && b.rolle === 'besitzer');
 const [rezepte, entwuerfe, zuletztGekocht] = await Promise.all([
   ladeRezepte(kontext),
   darf ? ladeEntwuerfe(kontext) : [],
@@ -38,6 +39,7 @@ const schnellzugriff = kontext.buch.schnellzugriff.map((s) => ({ text: s.text, h
     {entwuerfe.length > 0 && (
       <li><a class="chip" href={`/bearbeiten${basis}/entwuerfe`}>{entwuerfe.length} {entwuerfe.length === 1 ? 'Entwurf' : 'Entwürfe'}</a></li>
     )}
+    {istBesitzer && <li><a class="chip" href={`/bearbeiten${basis}/einstellungen`}>Einstellungen</a></li>}
   </ul>
 
   {zuletztGekocht.length > 0 && (
