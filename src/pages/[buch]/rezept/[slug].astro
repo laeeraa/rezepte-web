@@ -46,6 +46,10 @@ const eintraege = nutzer ? await ladeEintraege(rezept.id) : [];
 const gekocht = eintraege.filter((e) => e.art === 'gekocht');
 const istBesitzer = !!nutzer?.buecher.some((b) => b.id === kontext.buch.id && b.rolle === 'besitzer');
 const anmelden = `/anmelden?zurueck=${encodeURIComponent(Astro.url.pathname + '#erfahrungen')}`;
+
+// In ein eigenes (anderes) Buch kopieren.
+const kopierZiele = nutzer ? nutzer.buecher.filter((b) => b.id !== kontext.buch.id) : [];
+const kopierLink = (zielSlug: string) => `/bearbeiten/${zielSlug}/kopieren?von=${kontext.buch.slug}/${rezept.slug}`;
 ---
 
 <Layout titel={rezept.titel} schmal klasse={`f-${rezept.kategorie.farbe}`} kontext={kontext}>
@@ -59,10 +63,24 @@ const anmelden = `/anmelden?zurueck=${encodeURIComponent(Astro.url.pathname + '#
         </>
       ))}
     </nav>
-    {darf && (
-      <a class="bearbeiten" href={`/bearbeiten${basis}/rezept/${rezept.slug}`}>Bearbeiten</a>
-    )}
+    <div class="aktionen">
+      {darf && <a class="bearbeiten" href={`/bearbeiten${basis}/rezept/${rezept.slug}`}>Bearbeiten</a>}
+      {kopierZiele.length === 1 && <a class="bearbeiten" href={kopierLink(kopierZiele[0].slug)}>In mein Buch kopieren</a>}
+      {kopierZiele.length > 1 && (
+        <details class="kopieren">
+          <summary class="bearbeiten">In mein Buch kopieren</summary>
+          <ul>{kopierZiele.map((b) => <li><a href={kopierLink(b.slug)}>{b.name}</a></li>)}</ul>
+        </details>
+      )}
+      {nutzer && !nutzer.buecher.length && <a class="bearbeiten" href="/konto/buch-anlegen">Eigenes Buch anlegen, um zu kopieren</a>}
+    </div>
   </div>
+
+  {rezept.kopiertAus && (
+    <p class="kopiert-aus leise">
+      Kopiert aus <a href={`/${rezept.kopiertAus.buch}/rezept/${rezept.kopiertAus.slug}`}>{rezept.kopiertAus.buchName}</a>
+    </p>
+  )}
 
   {rezept.entwurf && (
     <p class="entwurf-hinweis">
@@ -133,7 +151,13 @@ const anmelden = `/anmelden?zurueck=${encodeURIComponent(Astro.url.pathname + '#
 <style>
   .bild { display: block; width: 100%; max-height: 32rem; object-fit: cover; border-radius: var(--radius); margin-bottom: 1rem; }
   .oben { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-  .bearbeiten { font-size: 0.9rem; color: var(--leise); }
+  .aktionen { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: flex-end; }
+  .bearbeiten { font-size: 0.9rem; color: var(--leise); cursor: pointer; }
+  .kopieren { position: relative; }
+  .kopieren summary { list-style: none; text-decoration: underline; }
+  .kopieren ul { position: absolute; right: 0; z-index: 5; margin: 0.3rem 0 0; padding: 0.4rem 0; list-style: none; min-width: 12rem; background: var(--karte); border: 1px solid var(--linie); border-radius: 8px; box-shadow: var(--schatten); }
+  .kopieren li a { display: block; padding: 0.35rem 0.9rem; text-decoration: none; }
+  .kopiert-aus { margin: 0.4rem 0 0; font-size: 0.85rem; }
   .bearbeiten:hover { color: var(--farbe); }
   .entwurf-hinweis { margin: 0.75rem 0 0; padding: 0.5rem 0.9rem; border-radius: 8px; background: var(--chip); font-size: 0.9rem; }
   .pfad { display: flex; gap: 0.4rem; font-size: 0.9rem; flex-wrap: wrap; }

@@ -1,0 +1,112 @@
+---
+// Rezept aus einem anderen Buch ins eigene kopieren: /bearbeiten/<zielbuch>/kopieren?von=<buch>/<rezept>
+// Das Formular ist vorausgefüllt; Kategorie und Tags werden dem eigenen Tagsystem zugeordnet.
+// Gespeichert wird eine eigenständige Kopie mit Verweis aufs Original (kopiert_von) und eigener Kopie des Fotos.
+import Layout from '../../../layouts/Layout.astro';
+import RezeptFormular from '../../../components/RezeptFormular.astro';
+import KeineBerechtigung from '../../../components/KeineBerechtigung.astro';
+import { bildAusFormular } from '../../../lib/bilder';
+import { ladeBuch, ladeRezeptRoh } from '../../../lib/db';
+import { darfBearbeiten, ladeBesitzer } from '../../../lib/nutzer';
+import { eingabeAus, eingabeAusFormular, speichereRezept, type RezeptEingabe } from '../../../lib/rezept-speichern';
+import { slugify } from '../../../lib/slug.mjs';
+
+const ziel = await ladeBuch(Astro.params.buch!);
+if (!ziel) return new Response(null, { status: 404 });
+const { nutzer } = Astro.locals;
+const darf = darfBearbeiten(nutzer, ziel.buch.id);
+if (!darf) Astro.response.status = 403;
+
+// Original laden. Entwürfe nur, wenn man im Ursprungsbuch selbst schreiben darf.
+const [vonBuch, vonSlug] = (Astro.url.searchParams.get('von') ?? '').split('/');
+const quelle = vonBuch ? await ladeBuch(vonBuch) : null;
+const original = quelle && vonSlug ? await ladeRezeptRoh(quelle, vonSlug) : null;
+if (!quelle || !original || (original.entwurf && !darfBearbeiten(nutzer, quelle.buch.id))) {
+  return new Response(null, { status: 404 });
+}
+
+// ---------- Vorausfüllen ----------
+
+const zielKategorie =
+  ziel.kategorien.find((k) => k.slug === original.kategorie) ??
+  ziel.kategorien.find((k) => k.name === quelle.kategorien.find((q) => q.slug === original.kategorie)?.name);
+
+const werteAusOriginal = (): { werte: RezeptEingabe; weggelassen: string[] } => {
+  const werte: RezeptEingabe = { ...eingabeAus(original), kategorie: zielKategorie?.slug ?? '', tags: [], neueTags: {}, entwurf: false };
+  const weggelassen: string[] = [];
+  const quellTags = [...quelle.tagNachId.values()];
+  for (const voll of original.tags) {
+    const quellTag = quellTags.find((t) => t.voll === voll)!;
+    const gruppe = ziel.gruppen.find((g) => g.key === quellTag.gruppe.key);
+    const zielTag = gruppe?.tags.find((t) => t.key === quellTag.key);
+    const passt = zielTag && (!zielTag.kategorien.length || (zielKategorie && zielTag.kategorien.includes(zielKategorie.slug)));
+    if (zielTag && passt) werte.tags.push(zielTag.voll);
+    else if (gruppe?.frei) werte.neueTags[gruppe.key] = [werte.neueTags[gruppe.key], quellTag.name].filter(Boolean).join(', ');
+    else weggelassen.push(`${quellTag.gruppe.name}: ${quellTag.name}`);
+  }
+  return { werte, weggelassen };
+};
+
+let { werte, weggelassen } = werteAusOriginal();
+
+// Woher das Rezept kommt: Besitzerin des Originalbuchs bei „Entdeckt bei/in“ ergänzen (nicht bei eigenen Büchern).
+const besitzer = await ladeBesitzer(quelle.buch.id);
+const herkunft = ziel.gruppen.find((g) => g.darstellung === 'herkunft' && g.frei);
+if (herkunft && besitzer && besitzer.id !== nutzer?.id) {
+  const vorhanden = herkunft.tags.find((t) => t.name.toLowerCase() === besitzer.name.toLowerCase());
+  if (vorhanden) werte.tags.push(vorhanden.voll);
+  else werte.neueTags[herkunft.key] = [werte.neueTags[herkunft.key], besitzer.name].filter(Boolean).join(', ');
+}
+
+// Gibt es den Titel im eigenen Buch schon, gleich einen anderen vorschlagen: „Hefezopf (Juli)“.
+let umbenannt = false;
+if (Astro.request.method === 'GET' && besitzer && (await ladeRezeptRoh(ziel, slugify(werte.titel)))) {
+  werte.titel = `${werte.titel} (${besitzer.name})`;
+  umbenannt = true;
+}
+
+let fehler: string[] = [];
+if (darf && Astro.request.method === 'POST') {
+  const formular = await Astro.request.formData();
+  werte = eingabeAusFormular(formular);
+  const ergebnis = await speichereRezept(ziel, werte, undefined, bildAusFormular(formular), nutzer!.id, {
+    vonId: original.id,
+    bildKey: original.bildKey,
+  });
+  if (ergebnis.ok) return Astro.redirect(`/${ziel.buch.slug}/rezept/${ergebnis.slug}`, 303);
+  fehler = ergebnis.fehler;
+  Astro.response.status = 422;
+}
+---
+
+<Layout titel={`${original.titel} kopieren`} schmal kontext={ziel}>
+  <h1>{original.titel} <span class="leise">kopieren</span></h1>
+  {!darf ? (
+    <KeineBerechtigung kontext={ziel} />
+  ) : (
+    <>
+      <p class="herkunft">
+        Aus <a href={`/${quelle.buch.slug}/rezept/${original.slug}`}>{quelle.buch.name}</a> in <strong>{ziel.buch.name}</strong>.
+        Prüf alles und speichere dann. Die Kopie ist unabhängig vom Original.
+      </p>
+      {weggelassen.length > 0 && (
+        <p class="weggelassen">Nicht übernommen, weil es diese Tags in deinem Buch nicht gibt: {weggelassen.join(', ')}.</p>
+      )}
+      {umbenannt && <p class="weggelassen">Ein Rezept „{original.titel}“ gibt es in deinem Buch schon, deshalb der neue Titel. Du kannst ihn ändern.</p>}
+      {!zielKategorie && <p class="weggelassen">Bitte eine Kategorie wählen, die passende gibt es in deinem Buch nicht.</p>}
+      <RezeptFormular
+        kontext={ziel}
+        werte={werte}
+        fehler={fehler}
+        zurueck={`/${quelle.buch.slug}/rezept/${original.slug}`}
+        bildKey={original.bildKey}
+      />
+    </>
+  )}
+</Layout>
+
+<style>
+  h1 .leise { font-size: 0.6em; font-weight: 400; }
+  .herkunft { margin-top: 0; }
+  .weggelassen { padding: 0.5rem 0.9rem; border-radius: 8px; background: var(--chip); font-size: 0.9rem; }
+</style>

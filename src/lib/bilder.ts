@@ -50,6 +50,14 @@ export async function speichereBild(key: string, bild: Required<Pick<BildEingabe
   if (bild.klein) await ablegen(`${key}-klein`, bild.klein);
 }
 
+/** Kopiert ein vorhandenes Bild (beide Größen) unter einen neuen Schlüssel, z. B. beim Kopieren eines Rezepts. */
+export async function kopiereBild(von: string, nach: string): Promise<void> {
+  for (const endung of ['', '-klein']) {
+    const bild = await env.BILDER.get(von + endung);
+    if (bild) await env.BILDER.put(nach + endung, await bild.arrayBuffer(), { httpMetadata: bild.httpMetadata });
+  }
+}
+
 export async function loescheBild(key: string): Promise<void> {
   await env.BILDER.delete([key, `${key}-klein`]);
 }

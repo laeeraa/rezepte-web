@@ -65,6 +65,10 @@ npm run neu-rendern -- --lokal    # bzw. --remote für die echte Datenbank
   Neue Einträge anderer zu eigenen Rezepten zeigt eine Zahl am Namen oben, die Liste steht im Konto.
 - **Was gibt's Neues** auf der Übersicht: neue Rezepte (für alle), gekocht und Kommentare (für Angemeldete).
   Rezepte gelten 14 Tage nach dem Veröffentlichen als „Neu“.
+- **Kopieren** in ein eigenes Buch: Knopf „In mein Buch kopieren“ auf Rezepten anderer Bücher, öffnet das
+  vorausgefüllte Formular (`/bearbeiten/<zielbuch>/kopieren?von=<buch>/<rezept>`). Kategorie und Tags werden
+  zugeordnet, „Entdeckt bei/in“ bekommt die Besitzerin des Originals, das Foto wird mitkopiert. Die Kopie ist
+  unabhängig und zeigt „Kopiert aus …“ (`rezept.kopiert_von`).
 - **Einstellungen** eines Buchs (nur Besitzerin): `/bearbeiten/<buch>/einstellungen`, Name und Farbthema.
   Themen in `src/lib/themen.ts`, Farben in `global.css` (`.thema-<name>`, hell und dunkel auf Kontrast geprüft).
 - **Eigenes Buch:** unter `/konto/buch-anlegen`, mit Kategorien und Tags aus `src/lib/startkonfiguration.mjs`.

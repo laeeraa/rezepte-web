@@ -21,6 +21,7 @@ declare module 'cloudflare:workers' {
 
   interface R2ObjectBody {
     body: ReadableStream;
+    arrayBuffer(): Promise<ArrayBuffer>;
     httpEtag: string;
     httpMetadata?: { contentType?: string };
   }

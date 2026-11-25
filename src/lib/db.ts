@@ -75,6 +75,8 @@ export interface Rezept extends RezeptKurz {
   quelle: string[];
   inhaltHtml: string;
   entwurf: boolean;
+  /** Original, aus dem das Rezept kopiert wurde (nur wenn es noch existiert und fertig ist). */
+  kopiertAus: { buch: string; buchName: string; slug: string; titel: string } | null;
 }
 
 /** Ein Rezept so, wie es im Formular steht. */
@@ -191,11 +193,22 @@ export async function ladeRezepte(k: BuchKontext): Promise<RezeptKurz[]> {
 /** Ein Rezept, auch als Entwurf (die Seite zeigt dann einen Hinweis), oder null. */
 export async function ladeRezept(k: BuchKontext, slug: string): Promise<Rezept | null> {
   const z = await db()
-    .prepare(`SELECT ${REZEPT_SPALTEN}, r.quelle, r.inhalt_html, r.status FROM rezept r WHERE r.buch_id = ? AND r.slug = ?`)
+    .prepare(
+      `SELECT ${REZEPT_SPALTEN}, r.quelle, r.inhalt_html, r.status,
+              (SELECT json_object('buch', b2.slug, 'buchName', b2.name, 'slug', r2.slug, 'titel', r2.titel)
+               FROM rezept r2 JOIN buch b2 ON b2.id = r2.buch_id WHERE r2.id = r.kopiert_von AND r2.status = 'fertig') AS kopiert_aus
+       FROM rezept r WHERE r.buch_id = ? AND r.slug = ?`,
+    )
     .bind(k.buch.id, slug)
-    .first<RezeptZeile & { quelle: string; inhalt_html: string; status: string }>();
+    .first<RezeptZeile & { quelle: string; inhalt_html: string; status: string; kopiert_aus: string | null }>();
   if (!z) return null;
-  return { ...zuRezeptKurz(k, z), quelle: JSON.parse(z.quelle), inhaltHtml: z.inhalt_html, entwurf: z.status === 'entwurf' };
+  return {
+    ...zuRezeptKurz(k, z),
+    quelle: JSON.parse(z.quelle),
+    inhaltHtml: z.inhalt_html,
+    entwurf: z.status === 'entwurf',
+    kopiertAus: z.kopiert_aus ? JSON.parse(z.kopiert_aus) : null,
+  };
 }
 
 export async function ladeRezeptRoh(k: BuchKontext, slug: string): Promise<RezeptRoh | null> {

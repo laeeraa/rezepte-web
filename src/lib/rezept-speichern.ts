@@ -7,7 +7,7 @@ import { pruefeTags } from './tagregeln.mjs';
 import { rezepttextRenderer } from './rezepttext.mjs';
 import { suchtext } from './suchtext.mjs';
 import { slugify } from './slug.mjs';
-import { loescheBild, neuerBildKey, pruefeBild, speichereBild, type BildEingabe } from './bilder';
+import { kopiereBild, loescheBild, neuerBildKey, pruefeBild, speichereBild, type BildEingabe } from './bilder';
 
 /** Was im Formular steht, als Text, damit es bei Fehlern unverändert wieder angezeigt werden kann. */
 export interface RezeptEingabe {
@@ -85,6 +85,8 @@ export async function speichereRezept(
   bild: BildEingabe = { entfernen: false },
   /** Wer speichert; bei neuen Rezepten als erstellt_von vermerkt. */
   nutzerId?: string,
+  /** Beim Kopieren aus einem anderen Buch: Original und dessen Foto (wird kopiert, wenn kein neues hochgeladen wurde). */
+  kopie?: { vonId: string; bildKey: string | null },
 ): Promise<Ergebnis> {
   const fehler: string[] = [];
   const slug = slugify(e.titel);
@@ -153,7 +155,8 @@ export async function speichereRezept(
   });
 
   // Das neue Bild wird direkt vor dem Schreiben abgelegt (unten), der Schlüssel steht aber schon fest.
-  const neuesBild = bild.gross ? neuerBildKey(k.buch.id) : null;
+  const bildKopieren = !bild.gross && !bild.entfernen && kopie?.bildKey ? kopie.bildKey : null;
+  const neuesBild = bild.gross || bildKopieren ? neuerBildKey(k.buch.id) : null;
   const behalten = bisher?.bildKey && !bild.entfernen ? bisher.bildKey : null;
 
   const werte = {
@@ -193,10 +196,10 @@ export async function speichereRezept(
     anweisungen.push(
       db()
         .prepare(
-          `INSERT INTO rezept (id, buch_id, erstellt_von, veroeffentlicht, ${spalten.join(', ')})
-           VALUES (?, ?, ?, CASE WHEN ? = 'fertig' THEN datetime('now') END, ${spalten.map(() => '?').join(', ')})`,
+          `INSERT INTO rezept (id, buch_id, erstellt_von, kopiert_von, veroeffentlicht, ${spalten.join(', ')})
+           VALUES (?, ?, ?, ?, CASE WHEN ? = 'fertig' THEN datetime('now') END, ${spalten.map(() => '?').join(', ')})`,
         )
-        .bind(id, k.buch.id, nutzerId ?? null, werte.status, ...Object.values(werte)),
+        .bind(id, k.buch.id, nutzerId ?? null, kopie?.vonId ?? null, werte.status, ...Object.values(werte)),
     );
   }
   anweisungen.push(db().prepare(`DELETE FROM rezept_tag WHERE rezept_id = ?`).bind(id));
@@ -212,7 +215,8 @@ export async function speichereRezept(
   // Klappt das Schreiben in die Datenbank nicht, wird das neue Bild wieder entfernt.
   // Das alte Bild wird erst nach erfolgreichem Schreiben gelöscht.
   try {
-    if (neuesBild) await speichereBild(neuesBild, { ...bild, gross: bild.gross! });
+    if (neuesBild && bildKopieren) await kopiereBild(bildKopieren, neuesBild);
+    else if (neuesBild) await speichereBild(neuesBild, { ...bild, gross: bild.gross! });
     await db().batch(anweisungen);
   } catch (fehler) {
     if (neuesBild) await loescheBild(neuesBild);

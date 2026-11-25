@@ -48,6 +48,14 @@ async function ladeNutzerWo(bedingung: string, wert: string): Promise<Nutzer | n
 
 export const darfBearbeiten = (nutzer: Nutzer | null, buchId: string) => !!nutzer?.buecher.some((b) => b.id === buchId);
 
+/** Name der Besitzerin eines Buchs (bei mehreren die erste), oder null. */
+export async function ladeBesitzer(buchId: string): Promise<{ id: string; name: string } | null> {
+  return db()
+    .prepare(`SELECT n.id, n.name FROM mitglied m JOIN nutzer n ON n.id = m.nutzer_id WHERE m.buch_id = ? AND m.rolle = 'besitzer' LIMIT 1`)
+    .bind(buchId)
+    .first<{ id: string; name: string }>();
+}
+
 // ---------- Einladungen ----------
 
 export async function erstelleEinladung(von: Nutzer, fuer: string): Promise<string> {
