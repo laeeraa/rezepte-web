@@ -1,0 +1,170 @@
+---
+// Rezept-Assistent: Link, Text oder Fotos → vorausgefülltes Rezeptformular → prüfen, nachbessern, speichern.
+import Layout from '../../../layouts/Layout.astro';
+import RezeptFormular from '../../../components/RezeptFormular.astro';
+import KeineBerechtigung from '../../../components/KeineBerechtigung.astro';
+import { bildAusFormular } from '../../../lib/bilder';
+import { ladeBuch } from '../../../lib/db';
+import { darfBearbeiten } from '../../../lib/nutzer';
+import { eingabeAusFormular, speichereRezept, type RezeptEingabe } from '../../../lib/rezept-speichern';
+import { bessereNach, erkenneRezept, LIMITS, MAX_FOTOS, verbleibend } from '../../../lib/assistent';
+
+const kontext = await ladeBuch(Astro.params.buch!);
+if (!kontext) return new Response(null, { status: 404 });
+const nutzer = Astro.locals.nutzer;
+const darf = darfBearbeiten(nutzer, kontext.buch.id);
+if (!darf) Astro.response.status = 403;
+const basis = `/${kontext.buch.slug}`;
+
+let werte: RezeptEingabe | null = null;
+let hinweise: string[] = [];
+let assistentFehler = '';
+let speicherFehler: string[] = [];
+let eingabe = '';
+
+if (darf && nutzer && Astro.request.method === 'POST') {
+  const formular = await Astro.request.formData();
+  const aktion = formular.get('aktion');
+  if (aktion === 'erkennen') {
+    eingabe = String(formular.get('eingabe') ?? '');
+    const fotos = formular.getAll('foto').filter((f): f is File => f instanceof File && f.size > 0);
+    const ergebnis = await erkenneRezept(kontext, nutzer, eingabe, fotos);
+    if (ergebnis.ok) ({ werte, hinweise } = ergebnis);
+    else assistentFehler = ergebnis.fehler;
+  } else if (aktion === 'nachbessern') {
+    werte = eingabeAusFormular(formular);
+    const ergebnis = await bessereNach(kontext, nutzer, werte, String(formular.get('wunsch') ?? ''));
+    if (ergebnis.ok) ({ werte, hinweise } = ergebnis);
+    else assistentFehler = ergebnis.fehler;
+  } else {
+    werte = eingabeAusFormular(formular);
+    const ergebnis = await speichereRezept(kontext, werte, undefined, bildAusFormular(formular), nutzer.id);
+    if (ergebnis.ok) return Astro.redirect(`${basis}/rezept/${ergebnis.slug}`, 303);
+    speicherFehler = ergebnis.fehler;
+  }
+  if (assistentFehler || speicherFehler.length) Astro.response.status = 422;
+}
+
+const rest = darf && nutzer ? { erkennen: await verbleibend(nutzer, 'erkennen'), nachbessern: await verbleibend(nutzer, 'nachbessern') } : null;
+---
+
+<Layout titel="Rezept importieren" schmal kontext={kontext}>
+  <h1>Rezept importieren</h1>
+  {!darf || !rest ? (
+    <KeineBerechtigung kontext={kontext} />
+  ) : (
+    <>
+      {assistentFehler && <p class="fehler" role="alert">{assistentFehler}</p>}
+
+      {!werte ? (
+        <form method="post" enctype="multipart/form-data" class="eingabe" data-erkennen-formular>
+          <p class="leise">
+            Füg einen Link zu einem Rezept ein, kopiere den Text eines Rezepts hierher oder lade Fotos hoch, etwa von einer
+            Rezeptkarte oder einer Buchseite. Der Assistent macht daraus ein Rezept für „{kontext.buch.name}“, das du vor dem
+            Speichern prüfst.
+          </p>
+          <label class="feld">
+            <span class="beschriftung">Link oder Rezepttext</span>
+            <textarea name="eingabe" rows="7" placeholder="https://… oder den Rezepttext einfügen">{eingabe}</textarea>
+          </label>
+          <label class="feld">
+            <span class="beschriftung">Fotos <span class="leise">optional, höchstens {MAX_FOTOS}</span></span>
+            <input type="file" name="foto" accept="image/jpeg,image/png,image/webp,image/*" multiple data-fotos />
+            <span class="leise klein" data-fotos-status></span>
+          </label>
+          <div class="knoepfe">
+            <button type="submit" name="aktion" value="erkennen" class="haupt" disabled={rest.erkennen <= 0} data-erkennen>
+              Rezept erkennen
+            </button>
+            <span class="leise klein">Heute noch {rest.erkennen} von {LIMITS.erkennen}.</span>
+          </div>
+          <p class="leise klein">
+            Text, Link-Inhalt und Fotos gehen zur Verarbeitung an Anthropic (Claude). Gespeichert wird nur, was du danach speicherst.
+          </p>
+        </form>
+      ) : (
+        <>
+          {hinweise.length > 0 && (
+            <div class="hinweise">
+              <strong>Hinweise vom Assistenten</strong>
+              <ul>{hinweise.map((h) => <li>{h}</li>)}</ul>
+            </div>
+          )}
+          <p class="leise">Bitte alles prüfen, vor allem Mengen, Tags und Zeiten. <a href={`/bearbeiten${basis}/importieren`}>Neu anfangen</a></p>
+          <RezeptFormular
+            kontext={kontext}
+            werte={werte}
+            fehler={speicherFehler}
+            zurueck={`/bearbeiten${basis}/importieren`}
+            nachbessern={{ rest: rest.nachbessern }}
+          />
+        </>
+      )}
+    </>
+  )}
+</Layout>
+
+<style>
+  .eingabe { display: grid; gap: 1rem; }
+  .feld { display: grid; gap: 0.35rem; }
+  .beschriftung { font-weight: 600; }
+  .beschriftung .leise { font-weight: 400; font-size: 0.85rem; margin-left: 0.3rem; }
+  textarea { font: inherit; width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--linie); border-radius: 8px; background: var(--karte); color: var(--text); resize: vertical; }
+  input[type='file'] { font: inherit; font-size: 0.9rem; }
+  .klein { font-size: 0.85rem; }
+  .knoepfe { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .haupt { font: inherit; font-weight: 600; padding: 0.65rem 1.5rem; border: 0; border-radius: 999px; background: var(--akzent); color: var(--papier); cursor: pointer; }
+  .haupt:disabled { opacity: 0.6; cursor: default; }
+  .fehler { color: var(--fehler); border: 1px solid var(--fehler); border-left-width: 4px; border-radius: 8px; padding: 0.5rem 1rem; background: var(--karte); }
+  .hinweise { padding: 0.6rem 1rem; border-radius: 8px; background: var(--chip); margin-bottom: 0.75rem; }
+  .hinweise ul { margin: 0.3rem 0 0; padding-left: 1.2rem; }
+</style>
+
+<script>
+  const formular = document.querySelector<HTMLFormElement>('[data-erkennen-formular]');
+  if (formular) {
+    const fotos = formular.querySelector<HTMLInputElement>('[data-fotos]')!;
+    const status = formular.querySelector<HTMLElement>('[data-fotos-status]')!;
+    const knopf = formular.querySelector<HTMLButtonElement>('[data-erkennen]')!;
+
+    // Fotos im Browser auf 1600 px verkleinern: schneller hochgeladen und für den Assistenten gut lesbar.
+    async function verkleinern(datei: File): Promise<File> {
+      const bitmap = await createImageBitmap(datei, { imageOrientation: 'from-image' });
+      const faktor = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * faktor);
+      canvas.height = Math.round(bitmap.height * faktor);
+      canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const blob = await new Promise<Blob | null>((fertig) => canvas.toBlob(fertig, 'image/jpeg', 0.85));
+      if (!blob) throw new Error('Umwandlung fehlgeschlagen');
+      return new File([blob], datei.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+    }
+
+    fotos.addEventListener('change', async () => {
+      const dateien = [...(fotos.files ?? [])];
+      if (!dateien.length) return (status.textContent = '');
+      knopf.disabled = true;
+      status.textContent = 'Fotos werden verkleinert …';
+      const liste = new DataTransfer();
+      for (const datei of dateien) {
+        try {
+          liste.items.add(await verkleinern(datei));
+        } catch {
+          liste.items.add(datei);
+        }
+      }
+      fotos.files = liste.files;
+      status.textContent = `${liste.files.length} Foto${liste.files.length === 1 ? '' : 's'} bereit.`;
+      knopf.disabled = false;
+    });
+
+    // Erst nach dem Absenden sperren, sonst fehlt aktion=erkennen in den Formulardaten.
+    formular.addEventListener('submit', () => {
+      setTimeout(() => {
+        knopf.disabled = true;
+        knopf.textContent = 'Der Assistent liest das Rezept …';
+      });
+    });
+  }
+</script>

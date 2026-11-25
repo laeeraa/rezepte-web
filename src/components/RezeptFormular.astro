@@ -15,9 +15,11 @@ interface Props {
   loeschbar?: boolean;
   /** Vorhandenes Foto des Rezepts. */
   bildKey?: string | null;
+  /** Assistent anbieten: Wunschfeld + Knopf „Nachbessern“ (aktion=nachbessern), mit verbleibenden Aufrufen. */
+  nachbessern?: { rest: number } | null;
 }
 
-const { kontext, werte, fehler, zurueck, loeschbar = false, bildKey = null } = Astro.props;
+const { kontext, werte, fehler, zurueck, loeschbar = false, bildKey = null, nachbessern = null } = Astro.props;
 const basis = `/${kontext.buch.slug}`;
 const gewaehlt = new Set(werte.tags);
 const gruppen = kontext.gruppen.filter((g) => g.tags.length > 0 || g.frei);
@@ -141,6 +143,19 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
     <button type="submit" class="haupt">Speichern</button>
     <a href={zurueck}>Abbrechen</a>
   </div>
+
+  {nachbessern && (
+    <div class="nachbessern">
+      <label class="feld">
+        <span class="beschriftung">Mit dem Assistenten nachbessern <span class="leise">noch {nachbessern.rest} heute</span></span>
+        <input name="wunsch" placeholder="z. B. „auf 2 Personen umrechnen“ oder „Schritte kürzer“" autocomplete="off" data-wunsch />
+      </label>
+      <button type="submit" name="aktion" value="nachbessern" class="neben" formnovalidate data-nachbessern disabled={nachbessern.rest <= 0}>
+        Nachbessern
+      </button>
+      <p class="leise klein">Der Assistent ändert die Felder oben; gespeichert wird erst mit „Speichern“.</p>
+    </div>
+  )}
 </form>
 
 {loeschbar && (
@@ -223,6 +238,9 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
   .fehlerbox p { margin: 0.3rem 0; }
   .fehlerbox ul { margin: 0.3rem 0 0.5rem; padding-left: 1.2rem; }
 
+  .nachbessern { display: grid; gap: 0.5rem; padding: 0.9rem 1rem; border: 1px dashed var(--linie); border-radius: var(--radius); }
+  .nachbessern .neben { justify-self: start; font: inherit; font-weight: 600; padding: 0.5rem 1.1rem; border-radius: 999px; border: 1px solid var(--linie); background: var(--karte); color: var(--text); cursor: pointer; }
+  .nachbessern .klein { font-size: 0.85rem; margin: 0; }
   .loeschen { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--linie); }
   .loeschen button { font: inherit; font-size: 0.9rem; border: 1px solid var(--fehler); color: var(--fehler); background: none; border-radius: 999px; padding: 0.4rem 1rem; cursor: pointer; }
 </style>
@@ -323,6 +341,25 @@ const hinweis = (auswahl: string, pflicht: boolean) =>
       bildFeld.value = '';
       kleinFeld.value = '';
     }
+  });
+
+  // Enter im Wunschfeld bessert nach, statt zu speichern.
+  const wunsch = formular.querySelector<HTMLInputElement>('[data-wunsch]');
+  const nachbessernKnopf = formular.querySelector<HTMLButtonElement>('[data-nachbessern]');
+  wunsch?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      nachbessernKnopf?.click();
+    }
+  });
+  // Während der Assistent arbeitet, Knöpfe sperren und Bescheid geben.
+  formular.addEventListener('submit', (e) => {
+    if ((e.submitter as HTMLButtonElement | null)?.dataset.nachbessern === undefined) return;
+    // Erst nach dem Absenden sperren: Ein gesperrter Knopf fehlt sonst in den Formulardaten (aktion=nachbessern).
+    setTimeout(() => {
+      for (const knopf of formular.querySelectorAll('button')) knopf.disabled = true;
+      nachbessernKnopf!.textContent = 'Der Assistent arbeitet …';
+    });
   });
 
   // Ungespeicherte Änderungen nicht aus Versehen verlieren.

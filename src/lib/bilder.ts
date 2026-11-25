@@ -21,7 +21,7 @@ export function bildAusFormular(form: FormData): BildEingabe {
 }
 
 /** Bildtyp anhand der ersten Bytes, nicht anhand von Dateiname oder Angabe des Browsers. */
-async function bildTyp(datei: File): Promise<string | null> {
+export async function bildTyp(datei: File): Promise<string | null> {
   const b = new Uint8Array(await datei.slice(0, 12).arrayBuffer());
   const ist = (start: number, ...bytes: number[]) => bytes.every((x, i) => b[start + i] === x);
   if (ist(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';

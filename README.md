@@ -65,6 +65,12 @@ npm run neu-rendern -- --lokal    # bzw. --remote für die echte Datenbank
   Neue Einträge anderer zu eigenen Rezepten zeigt eine Zahl am Namen oben, die Liste steht im Konto.
 - **Was gibt's Neues** auf der Übersicht: neue Rezepte (für alle), gekocht und Kommentare (für Angemeldete).
   Rezepte gelten 14 Tage nach dem Veröffentlichen als „Neu“.
+- **Rezept-Assistent** (`/bearbeiten/<buch>/importieren`, `src/lib/assistent.ts`): Link, Text oder Fotos → Claude
+  (Modell `claude-haiku-5-5`, strukturierte Ausgabe) → vorausgefülltes Formular mit Hinweisen, „Nachbessern“ per Wunsch.
+  Regeln aus `Struktur.md` im Systemprompt, Kategorie und Tags nur aus dem Tagsystem des Buchs. Links lädt der Worker
+  selbst (schema.org-Rezeptdaten plus Seitentext, `src/lib/seiteninhalt.ts`). Limit je Person und 24 h:
+  20× Erkennen, 40× Nachbessern (Tabelle `assistent_aufruf`, mit Tokenverbrauch). Schlüssel als Secret
+  `ANTHROPIC_API_KEY` (`npx wrangler secret put ANTHROPIC_API_KEY`), lokal in `.dev.vars`.
 - **Kopieren** in ein eigenes Buch: Knopf „In mein Buch kopieren“ auf Rezepten anderer Bücher, öffnet das
   vorausgefüllte Formular (`/bearbeiten/<zielbuch>/kopieren?von=<buch>/<rezept>`). Kategorie und Tags werden
   zugeordnet, „Entdeckt bei/in“ bekommt die Besitzerin des Originals, das Foto wird mitkopiert. Die Kopie ist
@@ -108,6 +114,7 @@ Das Schema steht in `migrations/` (eine Datei je Änderung, nie eine eingespielt
 | `buch`, `nutzer`, `mitglied` | Rezeptbücher, Personen und wer in welchem Buch schreiben darf |
 | `einladung` | Einladungslinks: von wem, für wen, gültig bis, angenommen von |
 | `sitzung` | Angemeldete Sitzungen (nur Hash des Cookies), 30 Tage gültig |
+| `assistent_aufruf` | Aufrufe des Rezept-Assistenten je Person (Tageslimit, Tokens) |
 | `eintrag` | Verlauf unter Rezepten: gekocht (mit Datum, Notiz) und Kommentare |
 | `kategorie` | Ersetzt die Ordner: Name, Farbe aus der Palette, Vollkorn-Tausch an/aus |
 | `tag_gruppe`, `tag`, `tag_kategorie` | Tagsystem je Buch: Pflicht, Einzel- oder Mehrfachauswahl, Filterlogik, Anzeige |

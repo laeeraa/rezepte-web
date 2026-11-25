@@ -39,6 +39,8 @@ declare module 'cloudflare:workers' {
     ACCESS_TEAM?: string;
     /** „Application Audience (AUD) Tag“ der Access-App */
     ACCESS_AUD?: string;
+    /** Schlüssel für die Claude-API (Rezept-Assistent). Secret, lokal in .dev.vars. */
+    ANTHROPIC_API_KEY?: string;
     /** Eigene Domain der Seite; Anfragen an …workers.dev werden dorthin umgeleitet. */
     DOMAIN?: string;
     /** Nur lokal (.dev.vars): als wer man auf localhost angemeldet ist. */
